@@ -1,0 +1,60 @@
+# Deployment config only — `wrangler deploy` is never run automatically by
+# this project (section 25). Review before deploying manually.
+name = "agentready-woo-agentic-commerce-readiness-toolkit-for-self-h"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+# Preview URLs require the script name to be <=54 chars; this name is 60.
+# Not something we use anyway (no per-branch preview workflow here) — off.
+preview_urls = false
+
+# Custom domain — utilityhouse.xyz is already on this Cloudflare account,
+# so wrangler provisions the DNS + TLS for this on deploy (no manual DNS
+# record needed, unlike the Resend records which are external). Must stay
+# a top-level key — placing it after a [[d1_databases]] block gets it
+# silently parsed as a field of that table instead (TOML array-of-tables
+# scoping), which is what happened here the first time.
+routes = [
+  { pattern = "app.utilityhouse.xyz", custom_domain = true }
+]
+
+# Marketing landing is the single source of truth — served as static assets
+# ahead of the Worker; unmatched paths (app routes) fall through to the Worker.
+[assets]
+directory = "marketing/landing"
+
+[vars]
+REVENUE_SYSTEM_ENABLED = "true"
+PUBLIC_BASE_URL = "https://app.utilityhouse.xyz"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[d1_databases]]
+binding = "FINANCIAL_DB"
+database_name = "money-ai-prod-d1"
+database_id = "19794cad-6966-44c9-a098-00904b919829"
+
+# Secrets (set with `wrangler secret put <name>`, never in this file):
+#   APP_ENCRYPTION_SECRET  — encrypts stored Woo consumer secrets at rest
+#   CART_SIGNING_SECRET    — signs the human-checkout cart handoff links
+#   PADDLE_WEBHOOK_SECRET  — verifies inbound Paddle webhook signatures
+#   PADDLE_PRICE_REPORT / _PRO / _AGENCY — Paddle price ids; billing page
+#     only shows a plan's checkout link once its price id is set.
+#     REPORT and PRO are one-time prices (no billing_cycle) — a one-off
+#     unlock, not a subscription. AGENCY is a real yearly subscription.
+#   OPS_TOKEN — bearer token for GET /ops/funnel (scan -> wall -> checkout
+#     funnel counts); the route 503s until this is set — see src/app.ts
+#   ADMIN_PASSWORD — HTTP Basic Auth password for /admin (operator user list
+#     + detail + password-reset-link generation); 503s until set (min 12
+#     chars) — see requireAdmin() in src/app.ts
+#   RESEND_API_KEY / EMAIL_FROM — sends the forgot-password email via Resend's
+#     REST API; without these, password reset still works end-to-end but the
+#     link must be handed to the merchant manually from /admin — see
+#     src/core/email.ts
+#   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — enables "Continue with Google"
+#     on /signup and /login; without these, only email/password auth shows —
+#     see requireAdmin()-style fail-closed googleOn check in src/app.ts
+#   OPENAI_API_KEY — adds an "AI content review" section (GPT-5 Nano) to the
+#     deep report email: judges the store's own product copy and suggests
+#     rewrites. Without it the deep report still sends in full, just without
+#     that section — see judgeReadiness() in src/core/aiJudge.ts

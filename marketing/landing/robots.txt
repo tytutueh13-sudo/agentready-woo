@@ -1,0 +1,39 @@
+# ── Search engines ──────────────────────────────────────────────
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /webhooks/
+
+# ── AI crawlers — explicitly welcome ────────────────────────────
+# OpenAI: training / search / live browsing
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic: training / user-initiated fetch / search
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-Search
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity / Google Gemini
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://app.utilityhouse.xyz/sitemap.xml

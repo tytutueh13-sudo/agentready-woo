@@ -1,0 +1,27 @@
+# AgentReady Woo
+
+> AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from. Checkout completes on the merchant's own site via signed cart handoff — no card data ever passes through AgentReady.
+
+A free scan grades any WooCommerce store's agent-readiness out of 100: discovery files, Store API health, feed quality, cart-handoff support. Merchants fix the reported gaps, then expose their catalog to shopping agents including ChatGPT shopping surfaces, Claude, and independent agents. Product feeds re-sync from the store every 15 minutes — price and stock stay live.
+
+## Pages
+
+- [Home + free scan](https://app.utilityhouse.xyz/): grade any WooCommerce store instantly
+- [How it works](https://app.utilityhouse.xyz/#product): connect store → scan → live agent feed → signed cart handoff
+- [Pricing](https://app.utilityhouse.xyz/#pricing)
+- [FAQ](https://app.utilityhouse.xyz/#faq)
+
+## Pricing
+
+- **Free** — forever: readiness score, top-10 product feed
+- **Deep Report** — $9 one-off: full gap report, competitor comparison, shareable badge
+- **Pro** — $99 once: unlimited offers, signed cart handoff, weekly agent-activity email — no renewal
+- **Agency** — $199/year: 25 client stores, priority support
+
+## For agents and developers
+
+- MCP endpoint: `https://app.utilityhouse.xyz/mcp/{store_id}` (Model Context Protocol) — `POST {"tool": "...", "input": {...}}`
+- Per-store agent discovery file + JSON product feed (price, stock, categories, sale prices)
+- Cart handoff: HMAC-signed, single-use links expiring in ≤60 minutes; buyer completes checkout on the merchant's own site
+- Auth: merchant-issued read-only WooCommerce REST API key, revocable in one click
+- Setup: paste store URL + a read-only WooCommerce REST API key — no plugin install required, five minutes

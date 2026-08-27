@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "vectors": {
+    "zero_price_positive_cost": {
+      "price": 0,
+      "maximumCost": 0.01,
+      "expected": "reject_before_upstream"
+    },
+    "under_authorization": {
+      "authorized": 0.009,
+      "required": 0.01,
+      "expected": "reject_before_upstream"
+    },
+    "wrong_merchant": {"expected": "reject_authorization"},
+    "wrong_network": {"expected": "reject_authorization"},
+    "wrong_asset": {"expected": "reject_authorization"},
+    "payment_replay": {"maximumSettlementEffects": 1},
+    "settlement_failure": {"resultReleased": false},
+    "kill_switch": {"newExposureAllowed": false},
+    "budget_race": {
+      "ceiling": 0.5,
+      "reservations": [0.4, 0.4, 0.4],
+      "maximumSuccessfulReservations": 1
+    },
+    "ambiguous_settlement": {
+      "newSettlementAllowed": false,
+      "resultReleased": false
+    },
+    "restart_recovery": {
+      "maximumUpstreamEffects": 1,
+      "maximumSettlementEffects": 1
+    }
+  }
+}

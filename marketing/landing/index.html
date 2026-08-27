@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AgentReady Woo — Your store, readable by AI shoppers</title>
+<link rel="canonical" href="https://app.utilityhouse.xyz/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes to set up. No code.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AgentReady / Woo">
+<meta property="og:title" content="AgentReady Woo — Your store, readable by AI shoppers">
+<meta property="og:description" content="ChatGPT already shops. Your store isn't invited. AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes. No code.">
+<meta property="og:image" content="https://app.utilityhouse.xyz/og-image.png">
+<meta property="og:url" content="https://app.utilityhouse.xyz/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spline+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF9F5; --ink:#17151C; --ink2:#55515E; --ink3:#98949F; --line:#E5E2DB;
+  --acc:#E4572E; --acc-dark:#C43F1B; --ok:#1F7A4D; --dark:#141218; --dark2:#1D1A24;
+  --serif:'Fraunces',serif; --sans:'Spline Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1140px;margin:0 auto;padding:0 32px}
+section{padding:76px 0;border-top:1px solid var(--line)}
+.kicker{font-family:var(--mono);font-size:12px;color:var(--acc);margin-bottom:14px}
+.kicker .no{color:var(--ink3);margin-right:10px}
+h2{font-family:var(--serif);font-weight:500;font-size:clamp(28px,3.6vw,40px);line-height:1.15;letter-spacing:-.01em;max-width:640px}
+.lede{color:var(--ink2);font-size:17px;max-width:560px;margin-top:14px}
+.btn{font-weight:600;font-size:15px;border-radius:6px;padding:13px 24px;border:1px solid transparent;cursor:pointer;text-decoration:none;display:inline-block}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-acc:hover{background:var(--acc-dark)}
+.btn-line{background:transparent;color:var(--ink);border-color:var(--ink)}
+.btn-line:hover{background:var(--ink);color:#fff}
+.mono{font-family:var(--mono)}
+
+/* nav */
+nav{position:static;background:var(--paper);border-bottom:1px solid var(--line)}
+nav .in{max-width:1140px;margin:0 auto;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:16px}
+.logo .mark{font-family:var(--serif);font-style:italic;font-weight:600}
+nav .links{display:flex;gap:24px;font-size:14px;align-items:center}
+nav .links a{color:var(--ink2);text-decoration:none}
+nav .links a:hover{color:var(--ink)}
+nav .cta{color:var(--acc);font-weight:600}
+
+/* hero */
+.hero{position:relative;color:#fff;overflow:hidden;background:var(--dark)}
+.hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hero .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,24,.66),rgba(20,18,24,.5) 55%,rgba(20,18,24,.88) 100%)}
+.hero .in{position:relative;max-width:1140px;margin:0 auto;padding:130px 32px 96px}
+.hero h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,6vw,68px);line-height:1.05;letter-spacing:-.015em;max-width:760px}
+.hero h1 em{font-style:italic;color:#FFB59A}
+.hero p{color:#C9C5D2;font-size:18px;max-width:520px;margin:22px 0 30px}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+.hero .facts{display:flex;gap:0;margin-top:52px;border-top:1px solid rgba(255,255,255,.18)}
+.hero .fact{padding:18px 32px 0 0;margin-right:32px;border-right:1px solid rgba(255,255,255,.18);font-size:13.5px;color:#B9B5C4}
+.hero .fact:last-child{border-right:0}
+.hero .fact b{display:block;font-family:var(--serif);font-size:26px;color:#fff;font-weight:500}
+
+/* section header pattern */
+.sec-head{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:44px}
+
+/* ============ PRODUCT FLOW ============ */
+.flow-step{display:grid;grid-template-columns:5fr 7fr;gap:48px;align-items:start;padding:44px 0;border-top:1px dashed var(--line)}
+.flow-step:first-of-type{border-top:0}
+.flow-step.flip{grid-template-columns:7fr 5fr}
+.flow-step.flip .txt{order:2}
+.step-no{font-family:var(--mono);font-size:13px;color:var(--acc);margin-bottom:10px}
+.flow-step h3{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.2;margin-bottom:10px}
+.flow-step .d{color:var(--ink2);font-size:15px;margin-bottom:14px}
+.flow-step .fine{font-family:var(--mono);font-size:12px;color:var(--ink3);line-height:1.8}
+.ui{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(23,21,28,.06)}
+.ui .bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);background:#FCFBF8}
+.ui .dot{width:9px;height:9px;border-radius:50%;background:#DAD7CF}
+.ui .bar .t{margin:0 auto;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.ui .body{padding:22px}
+label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 5px;color:var(--ink2)}
+.inp{width:100%;border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:13px;background:#fff;color:var(--ink)}
+.inp:focus{outline:none;border-color:var(--acc)}
+.btn-sm{background:var(--acc);color:#fff;border:0;border-radius:6px;font-weight:600;font-size:13.5px;padding:10px 18px;cursor:pointer;margin-top:16px}
+.okline{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ok);margin-top:12px;font-family:var(--mono)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500}
+td{padding:9px 10px;border-bottom:1px solid var(--line)}
+td.mono{font-size:12px;color:var(--ink2)}
+.tag{font-family:var(--mono);font-size:11px;border-radius:4px;padding:1px 8px}
+.t-ok{color:var(--ok);background:#EDF5F0}
+.t-live{color:var(--acc-dark);background:#FCEEE8}
+.feed{background:#17151C;border-radius:8px;padding:18px;font-family:var(--mono);font-size:12px;line-height:1.85;color:#C9C5D2;overflow:hidden}
+.feed .k{color:#B49BE0}.feed .s{color:#E8E5F0}.feed .n{color:#F0A583}.feed .g{color:#7FC79A}
+.codehead{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-bottom:10px}
+
+/* who strip */
+.who{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:36px}
+.who .cell{background:#fff;padding:30px 28px 26px}
+.who .cell-no{font-family:var(--mono);font-size:12px;color:var(--acc);margin-bottom:14px}
+.who .cell h4{font-family:var(--serif);font-weight:500;font-size:22px;margin-bottom:10px}
+.who .cell p{font-size:15px;color:var(--ink);max-width:400px}
+.who .cell p.cell-fine{font-size:13.5px;color:var(--ink2);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+
+/* numbers */
+.band{background:var(--dark);color:#fff;border-radius:0;margin:0 -32px;padding:64px 32px}
+.band .in2{max-width:1140px;margin:0 auto}
+.band .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+.band .v{font-family:var(--serif);font-size:52px;font-weight:500;line-height:1}
+.band .v span{color:var(--acc)}
+.band .l{color:#A9A5B5;font-size:14px;margin-top:10px;max-width:260px}
+.band .src{margin-top:36px;font-family:var(--mono);font-size:11px;color:#6F6A80;letter-spacing:.03em}
+.band .src a{color:#8B8698;text-decoration:none;border-bottom:1px solid rgba(139,134,152,.4)}
+.band .src a:hover{color:#C9C5D2;border-color:#C9C5D2}
+
+/* pricing */
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:36px}
+.plan{background:#fff;padding:26px 22px;border-right:1px solid var(--line)}
+.plan:last-child{border-right:0}
+.plan.rec{background:#FCF7F4}
+.plan .nm{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.plan .pr{font-family:var(--serif);font-size:38px;font-weight:500;margin:10px 0 0}
+.plan .pr span{font-family:var(--sans);font-size:13px;color:var(--ink3)}
+.plan .for{font-size:13px;color:var(--ink2);margin:6px 0 16px;min-height:40px}
+.plan ul{list-style:none;display:grid;gap:8px;font-size:13.5px;color:var(--ink2)}
+.plan li::before{content:"—";color:var(--acc);margin-right:8px}
+.plan .btn{width:100%;text-align:center;margin-top:20px;padding:11px 0;font-size:14px}
+.plan .rec-tag{font-family:var(--mono);font-size:11px;color:var(--acc);margin-bottom:6px}
+
+/* faq */
+.faq{max-width:760px}
+details{border-bottom:1px solid var(--line);padding:18px 0}
+details:first-of-type{border-top:1px solid var(--line)}
+summary{font-weight:600;cursor:pointer;font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+summary::after{content:"+";font-family:var(--mono);color:var(--acc);font-size:18px}
+details[open] summary::after{content:"–"}
+details p{margin-top:12px;color:var(--ink2);font-size:15px;max-width:640px}
+
+/* final */
+.final{background:var(--dark);color:#fff;border-top:0}
+.final .in{max-width:1140px;margin:0 auto;padding:96px 32px 104px;display:grid;grid-template-columns:1.2fr .8fr;gap:64px;align-items:center}
+.final .kicker{color:var(--acc)}
+.final .kicker .no{color:#6F6A80}
+.final h2{color:#fff;max-width:none;font-size:clamp(26px,2.9vw,36px)}
+.final p{color:#A9A5B5;margin-top:14px;font-size:17px;max-width:440px}
+.final .cta{margin-top:32px}
+.receipt{background:var(--dark2);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:22px 24px 18px;font-family:var(--mono);font-size:13px;line-height:1.7;color:#C9C5D2}
+.rc-head{display:flex;align-items:center;gap:9px;color:#fff;font-size:12.5px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:14px}
+.rc-head .dot{width:7px;height:7px;border-radius:50%;background:#3DA668;flex:none}
+.receipt dl{display:grid;grid-template-columns:auto 1fr;gap:7px 20px;margin:0}
+.receipt dt{color:#6F6A80}
+.receipt dd{margin:0;color:#E8E6EF;overflow-wrap:anywhere}
+.receipt dd em{font-style:normal;color:#3DA668;font-size:11px;margin-left:8px;letter-spacing:.04em}
+.rc-foot{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.09);font-size:11px;color:#6F6A80;letter-spacing:.05em}
+footer{border-top:1px solid var(--line)}
+footer .in{max-width:1140px;margin:0 auto;padding:56px 32px 40px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:40px}
+footer .logo{font-size:15px}
+footer .logo .by{color:var(--ink3);font-weight:400;font-size:13px}
+footer .brand p{font-size:13.5px;color:var(--ink2);max-width:300px;margin-top:12px;line-height:1.55}
+footer .col{display:flex;flex-direction:column;gap:9px;font-size:13.5px}
+footer .col .h{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+footer .col a{color:var(--ink2);text-decoration:none}
+footer .col a:hover{color:var(--acc-dark)}
+footer .legal{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:44px;padding-top:22px;font-size:12.5px;color:var(--ink3)}
+footer .legal a{color:var(--ink3);text-decoration:none}
+footer .legal a:hover{color:var(--ink)}
+@media(max-width:880px){
+  .hero .veil{background:linear-gradient(180deg,rgba(20,18,24,.8) 0%,rgba(20,18,24,.62) 55%,rgba(20,18,24,.92) 100%)}
+  .hero video{object-position:72% center}
+  .hero .in{padding:104px 24px 72px}
+  footer .cols{grid-template-columns:1fr;gap:28px}
+  footer .in{padding:44px 24px 36px}
+  .final .in{grid-template-columns:1fr;gap:48px;padding:72px 24px 80px;align-items:start}
+  .final h2 br{display:none}
+  .flow-step,.flow-step.flip{grid-template-columns:1fr}
+  .flow-step.flip .txt{order:0}
+  .who,.band .grid{grid-template-columns:1fr}
+  .plans{grid-template-columns:1fr}
+  .plan{border-right:0;border-bottom:1px solid var(--line)}
+  .hero .facts{flex-direction:column;gap:14px}
+  .hero .fact{border-right:0;margin-right:0;padding:0}
+}
+@media(max-width:480px){
+  nav .in{flex-wrap:wrap;row-gap:10px;padding:14px 20px}
+  nav .links{width:100%;justify-content:flex-end;flex-wrap:wrap;column-gap:16px;row-gap:6px;font-size:13px}
+}
+#scan-out table{width:100%;border-collapse:collapse;font-size:14.5px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#scan-out td,#scan-out th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
+#scan-out tr:last-child td{border-bottom:0}
+#scan-out th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:500}
+#scan-out .pass{color:var(--ok);font-weight:600}
+#scan-out .fail{color:var(--acc);font-weight:600}
+#scan-out .scan-score{font-family:var(--serif);font-size:56px;font-weight:500;line-height:1;margin:18px 0 4px}
+#scan-out .scan-score span{font-size:22px;color:var(--ink3)}
+#scan-out .recs{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-top:14px;font-size:14.5px}
+#scan-out .recs ul{margin:8px 0 0 18px}
+#scan-out .rec-cta{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.scan-err{color:var(--acc-dark);font-size:14.5px}
+.scanbar{display:flex;gap:10px;flex-wrap:wrap;margin:26px 0 14px}
+.scanbar input{flex:1;min-width:250px;border:1px solid rgba(255,255,255,.28);border-radius:6px;padding:13px 15px;font-size:15px;font-family:var(--sans);background:rgba(20,18,24,.45);color:#fff}
+.scanbar input::placeholder{color:rgba(255,255,255,.55)}
+.scanbar input:focus{outline:none;border-color:var(--acc)}
+.hero-see{color:rgba(255,255,255,.72);font-size:14px;text-decoration:none}
+.hero-see:hover{color:#fff}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AgentReady Woo",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "url": "https://app.utilityhouse.xyz/",
+  "description": "AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from, with checkout on the merchant's own site.",
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "Readiness score and top-10 product feed, forever" },
+    { "@type": "Offer", "name": "Deep Report", "price": "9.00", "priceCurrency": "USD", "description": "One-off prioritized gap report, delivered by email" },
+    { "@type": "Offer", "name": "Pro", "price": "99.00", "priceCurrency": "USD", "description": "One-time purchase: full catalog exposed to agents, signed cart handoff, weekly activity email" },
+    { "@type": "Offer", "name": "Agency", "price": "199.00", "priceCurrency": "USD", "description": "25 client stores, one license, priority support" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is it safe to hand over API keys?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You issue a read-only REST API key inside your own WordPress admin, scoped to your store, and you can revoke it in one click whenever you want. AgentReady can read your catalog; it cannot write, refund, or touch customer data. No card information ever passes through the service — every checkout completes on your own site." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which AI agents does this actually reach?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. As standards like ACP and WebMCP stabilize, your feed format updates automatically — that's the point of building on the spec, not a hack." }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from an SEO plugin?",
+      "acceptedAnswer": { "@type": "Answer", "text": "SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock-queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out." }
+    },
+    {
+      "@type": "Question",
+      "name": "What if I stop paying?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The free tier keeps your basic feed and discovery file live forever. You lose analytics, cart handoff and the higher offer limits — you don't lose visibility." }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<nav><div class="in">
+  <div class="logo"><span class="mark">AgentReady</span> <span style="color:var(--ink3)">/ Woo</span></div>
+  <div class="links">
+    <a href="#product">Product</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#scan" class="cta">Check your store →</a>
+  </div>
+</div></nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <video autoplay muted loop playsinline preload="metadata" poster="hero-poster.jpg" src="hero-ad.mp4"></video>
+  <div class="veil"></div>
+  <div class="in">
+    <div class="kicker" style="color:#FFB59A">For WooCommerce stores</div>
+    <h1>ChatGPT already shops.<br><em>Your store isn't invited.</em></h1>
+    <p>AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes to set up. No code.</p>
+    <form id="scan-hero" data-scan-form class="scanbar">
+      <input data-scan-input type="url" required placeholder="https://yourstore.com" aria-label="Your store URL">
+      <button class="btn btn-acc" type="submit">Scan my store — free</button>
+    </form>
+    <a href="#product" class="hero-see">See it work ↓</a>
+    <div class="facts">
+      <div class="fact"><b>1,000,000+</b>Shopify stores already sell inside ChatGPT. Woo is next.</div>
+      <div class="fact"><b>+38%</b>purchase completion from AI-referred shoppers (Adobe)</div>
+      <div class="fact"><b>$0</b>to start. Free tier, no card.</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ WHO ============ -->
+<section style="border-top:0">
+  <div class="sec-head">
+    <div class="kicker"><span class="no">01</span>Who this is for</div>
+    <h2>Built for the stores big platforms forgot.</h2>
+  </div>
+  <div class="who">
+    <div class="cell">
+      <div class="cell-no">A</div>
+      <h4>You run a WooCommerce store</h4>
+      <p>Shopify merchants got rolled into ChatGPT automatically. You woke up invisible to AI shoppers.</p>
+      <p class="cell-fine">AgentReady is the catch-up — your catalog, translated to what agents read, live in five minutes.</p>
+    </div>
+    <div class="cell">
+      <div class="cell-no">B</div>
+      <h4>You build stores for clients</h4>
+      <p>"Agent-readiness" is the retainer your clients haven't heard of yet.</p>
+      <p class="cell-fine">25 stores under one license, agent traffic reported in your own brand. Bill it as the new SEO.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRODUCT FLOW ============ -->
+<section id="product">
+  <div class="sec-head">
+    <div class="kicker"><span class="no">02</span>The product, exactly as you'll use it</div>
+    <h2>Four screens. That's the whole product.</h2>
+    <p class="lede">No mystery. This is the actual flow — connect, go live, get found, watch it happen.</p>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="flow-step">
+    <div class="txt">
+      <div class="step-no">STEP 1 / 4</div>
+      <h3>Connect your own store</h3>
+      <p class="d">Paste your store URL and the WooCommerce API keys you generate in your own admin. The keys are read-only, scoped to your store, revocable by you anytime. We store nothing but the feed.</p>
+      <div class="fine">WooCommerce → Settings → Advanced → REST API → Add key<br>Permissions: Read only · That's the whole security surface</div>
+    </div>
+    <div class="ui">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t">app.utilityhouse.xyz / connect</span></div>
+      <div class="body">
+        <label>Store URL</label>
+        <div class="inp">https://northwindwool.com</div>
+        <label>Consumer key</label>
+        <div class="inp">ck_7f3a91c2e8b4…</div>
+        <label>Consumer secret</label>
+        <div class="inp">cs_••••••••••••••••</div>
+        <button class="btn-sm">Connect store</button>
+        <div class="okline">✓ 41 products found · catalog readable · 0 errors</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="flow-step flip">
+    <div class="ui">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t">dashboard / feed</span></div>
+      <div class="body" style="padding:14px 0 0">
+        <table>
+          <tr><th>Product</th><th>Price</th><th>Stock</th><th>Status</th></tr>
+          <tr><td>Black Wool Running Shoes</td><td class="mono">$129.00</td><td class="mono">14</td><td><span class="tag t-live">LIVE</span></td></tr>
+          <tr><td>Merino Trail Socks 3-pack</td><td class="mono">$34.00</td><td class="mono">87</td><td><span class="tag t-live">LIVE</span></td></tr>
+          <tr><td>Weatherproof Wool Cap</td><td class="mono">$59.00</td><td class="mono">0</td><td><span class="tag t-ok">indexed</span></td></tr>
+          <tr><td>Alpaca Crew Sweater</td><td class="mono">$148.00</td><td class="mono">22</td><td><span class="tag t-live">LIVE</span></td></tr>
+        </table>
+        <div style="padding:12px 14px 16px"><span class="okline">✓ 41 of 41 offers live · last sync 2 min ago</span></div>
+      </div>
+    </div>
+    <div class="txt">
+      <div class="step-no">STEP 2 / 4</div>
+      <h3>Your feed goes live — and stays live</h3>
+      <p class="d">Every product, price and stock count becomes a live agent-readable feed. It re-syncs from your store automatically — change a price at 2pm, agents see it at 2pm. Nothing to maintain.</p>
+      <div class="fine">Sync: every 15 min · Free tier keeps your top 10 products live<br>Works with variable products, sale prices, categories</div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="flow-step">
+    <div class="txt">
+      <div class="step-no">STEP 3 / 4</div>
+      <h3>Agents find you — and can actually buy</h3>
+      <p class="d">This is what a shopping agent now sees when a customer asks for what you sell: your real product, real price, real stock — plus a signed cart link that expires in 15 minutes. Checkout finishes on YOUR site. The buyer approves; you get the order.</p>
+      <div class="fine">Cart links: HMAC-signed · single-use · max 60 min<br>No card data ever passes through AgentReady</div>
+    </div>
+    <div class="ui" style="background:var(--dark);border-color:#2A2733">
+      <div class="bar" style="background:#1D1A24;border-color:#2A2733"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t" style="color:#6F6A80">shopping agent · reading northwindwool.com</span></div>
+      <div style="padding:20px">
+        <div class="feed">
+          <span class="k">"black wool running shoes under $130"</span><br><br>
+          {<br>
+          &nbsp;&nbsp;<span class="k">"store"</span>: <span class="s">"Northwind Wool Co."</span>,<br>
+          &nbsp;&nbsp;<span class="k">"title"</span>: <span class="s">"Black Wool Running Shoes"</span>,<br>
+          &nbsp;&nbsp;<span class="k">"price"</span>: <span class="n">129.00</span>,<br>
+          &nbsp;&nbsp;<span class="k">"in_stock"</span>: <span class="g">true</span>,<br>
+          &nbsp;&nbsp;<span class="k">"cart"</span>: <span class="s">"signed · expires 15m"</span><br>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="flow-step flip">
+    <div class="ui">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t">dashboard / overview</span></div>
+      <div class="body" style="padding:14px 0 0">
+        <div style="display:grid;grid-template-columns:repeat(1,1fr);gap:1px;background:var(--line)">
+          <div style="background:#fff;padding:14px 16px"><div style="font-family:var(--serif);font-size:24px">1,284</div><div style="font-family:var(--mono);font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em">agent requests · 30d</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="txt">
+      <div class="step-no">STEP 4 / 4</div>
+      <h3>See that agents are actually visiting</h3>
+      <p class="d">A live count of every request your feed and MCP endpoint get from AI agents, right on your dashboard — proof shopping agents are actually reading your catalog, not just a hope.</p>
+      <div class="fine">Included on every plan, free or paid.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FREE SCAN (interactive) ============ -->
+<section id="scan">
+  <div class="sec-head">
+    <div class="kicker"><span class="no">03</span>The free scan</div>
+    <h2>Run step one on your store. Right here.</h2>
+    <p class="lede">You just saw the whole product — this is it, live. Read-only, no signup, forever free. We fetch your public pages only.</p>
+  </div>
+  <form data-scan-form style="display:flex;gap:10px;max-width:560px;flex-wrap:wrap">
+    <input data-scan-input type="url" required placeholder="https://yourstore.com"
+      style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:6px;padding:13px 14px;font-size:15px;font-family:var(--sans);background:#fff">
+    <button class="btn btn-acc" type="submit" id="scan-btn">Run the scan</button>
+  </form>
+  <div id="scan-out" hidden style="margin-top:28px"></div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section style="padding:0">
+  <div class="band">
+    <div class="in2">
+      <div class="kicker" style="color:var(--acc)"><span class="no" style="color:#6F6A80">04</span>Why now</div>
+      <div class="grid" style="margin-top:24px">
+        <div><div class="v">1M+</div><div class="l">Shopify stores were auto-onboarded into ChatGPT shopping. WooCommerce got nothing. This is the catch-up.</div></div>
+        <div><div class="v">+38<span>%</span></div><div class="l">higher purchase completion from AI-referred visitors vs traditional search (Adobe Analytics)</div></div>
+        <div><div class="v">+138<span>%</span></div><div class="l">AI traffic to US retail sites, May 2026 YoY — the highest share Adobe has ever recorded</div></div>
+      </div>
+      <div class="src">sources: <a href="https://docs.stripe.com/agentic-commerce/acp" target="_blank" rel="noopener">Stripe ACP</a> · <a href="https://business.adobe.com/blog/generative-ai-powered-shopping-rises-with-traffic-to-retail-sites" target="_blank" rel="noopener">Adobe Analytics</a> · <a href="https://www.reuters.com/business/media-telecom/ai-referred-us-shoppers-browse-longer-spend-more-per-visit-data-shows-2026-06-15" target="_blank" rel="noopener">Reuters, Jun 2026</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing">
+  <div class="sec-head">
+    <div class="kicker"><span class="no">05</span>Pricing</div>
+    <h2>Answers once, agents yearly.</h2>
+    <p class="lede">Priced like a WooCommerce plugin, because that's what you'll compare it to: WebToffee charges $89/yr for a feed, Yoast $99/yr for SEO — both forever, every year. Pro is $99 once for the feed, the agent endpoint, the checkout handoff and the analytics. No renewal.</p>
+  </div>
+  <div class="plans">
+    <div class="plan">
+      <div class="nm">Free</div>
+      <div class="pr">$0<span> forever</span></div>
+      <div class="for">See if agents can read you at all.</div>
+      <ul><li>Agent scan, free forever</li><li>Live feed, your top 10 products</li><li>Discovery file + endpoint</li></ul>
+      <a href="/signup" class="btn btn-line">Start free</a>
+    </div>
+    <div class="plan">
+      <div class="nm">Deep report</div>
+      <div class="pr">$9<span> once</span></div>
+      <div class="for">The full truth, one report, no subscription.</div>
+      <ul><li>Every gap your free scan found, prioritized by impact</li><li>Emailed automatically once you're logged in and have a scan on file</li></ul>
+      <a href="/signup" class="btn btn-line" data-buy="report">Sign up to buy the report</a>
+    </div>
+    <div class="plan rec">
+      <div class="rec-tag">RECOMMENDED</div>
+      <div class="nm">Pro</div>
+      <div class="pr">$99<span> once</span></div>
+      <div class="for">One payment. Unlocks your full catalog — no renewal, ever.</div>
+      <ul><li>Full catalog exposed to agents — no top-10 cap</li><li>Signed cart handoff on every product</li><li>Weekly email: how many agents visited</li></ul>
+      <a href="/signup" class="btn btn-acc" data-buy="pro">Sign up to unlock Pro</a>
+    </div>
+    <div class="plan">
+      <div class="nm">Agency</div>
+      <div class="pr">$199<span>/year</span></div>
+      <div class="for">25 client stores. $8 per store per year.</div>
+      <ul><li>25 stores, one license</li><li>Priority support</li></ul>
+      <a href="https://pay.paddle.com/checkout/pri_01m0yghkn396hfkv3r9x5rnst0" class="btn btn-line" data-buy="agency">Talk to us</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="sec-head">
+    <div class="kicker"><span class="no">06</span>Objections, answered</div>
+    <h2>The questions you'd ask anyway.</h2>
+  </div>
+  <div class="faq">
+    <details open><summary>Is it safe to hand over API keys?</summary><p>You issue a read-only REST API key inside your own WordPress admin, scoped to your store, and you can revoke it in one click whenever you want. AgentReady can read your catalog; it cannot write, refund, or touch customer data. No card information ever passes through the service — every checkout completes on your own site.</p></details>
+    <details><summary>Which AI agents does this actually reach?</summary><p>Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. As standards like ACP and WebMCP stabilize, your feed format updates automatically — that's the point of building on the spec, not a hack.</p></details>
+    <details><summary>How is this different from an SEO plugin?</summary><p>SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock-queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out.</p></details>
+    <details><summary>What if I stop paying?</summary><p>The free tier keeps your feed, discovery file and cart handoff live forever — you just go back to a top-10-product limit instead of your full catalog. You don't lose visibility.</p></details>
+  </div>
+</section>
+</div>
+
+<!-- ============ FINAL ============ -->
+<section class="final">
+  <div class="in">
+    <div class="pitch">
+      <div class="kicker"><span class="no">07</span>Start</div>
+      <h2>The next customer asks an AI, <br>not a search engine. Be the answer.</h2>
+      <p>Free scan, five-minute setup, your catalog live to agents today.</p>
+      <div class="cta"><a href="#scan" class="btn btn-acc">Check your store — free</a></div>
+    </div>
+    <div class="receipt" aria-hidden="true">
+      <div class="rc-head"><span class="dot"></span>app.utilityhouse.xyz/mcp/your-store</div>
+      <dl>
+        <dt>ask</dt><dd>"black running shoes, in stock?"</dd>
+        <dt>match</dt><dd>NorthWedge Runner — $124.00<em>IN STOCK</em></dd>
+        <dt>handoff</dt><dd>cart signed → northwind.example/cart</dd>
+      </dl>
+      <div class="rc-foot">signed handoff · your store, your checkout</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="in">
+    <div class="cols">
+      <div class="brand">
+        <div class="logo"><span class="mark">AgentReady</span> <span class="by">/ Woo</span></div>
+        <p>Makes self-hosted WooCommerce stores readable and buyable by AI shopping agents — no plugin install, five minutes.</p>
+      </div>
+      <div class="col">
+        <div class="h">Product</div>
+        <a href="#product">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="col">
+        <div class="h">Resources</div>
+        <a href="#">Docs</a>
+        <a href="#">Status</a>
+        <a href="/.well-known/agenticweb.md">Agent discovery file</a>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© 2026 AgentReady — a UtilityHouse product</span>
+      <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/refund-policy">Refund Policy</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var out=document.getElementById("scan-out");
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function render(d){
+    var rows=(d.checks||[]).map(function(c){return '<tr><td style="width:26px"><span class="'+(c.ok?"pass":"fail")+'">'+(c.ok?"✓":"✗")+'</span></td><td>'+esc(c.label)+'</td><td style="color:var(--ink2)">'+esc(c.detail)+"</td></tr>";}).join("");
+    var recs=(d.recommendations||[]).map(function(r){return "<li>"+esc(r)+"</li>";}).join("");
+    return '<div class="scan-score">'+d.score+"<span>/100</span></div>"+
+      '<span class="badge" style="border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)">'+esc(d.grade)+"</span>"+
+      '<table style="margin-top:18px"><tr><th></th><th>Check</th><th>Detail</th></tr>'+rows+"</table>"+
+      (recs?'<div class="recs"><strong>What to do next</strong><ul>'+recs+"</ul>"+
+        '<div class="rec-cta"><a class="btn btn-acc" href="/signup">Become buyable — create a free account</a>'+
+        '<span style="color:var(--ink3);font-size:13.5px">Free forever · top 10 products live as offers</span></div></div>':"");
+  }
+  document.querySelectorAll("[data-scan-form]").forEach(function(form){
+   form.addEventListener("submit",async function(e){
+    e.preventDefault();
+    var btn=form.querySelector("button[type=submit]"),input=form.querySelector("[data-scan-input]");
+    var original=btn.textContent;
+    btn.disabled=true;btn.textContent="Scanning…";out.hidden=true;
+    try{
+      var res=await fetch("/api/scan",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({store_url:input.value})});
+      var data=await res.json();
+      if(!res.ok){out.innerHTML='<p class="scan-err">'+esc(data.error||"Scan failed — try again.")+"</p>";}
+      else{out.innerHTML=render(data);}
+    }catch(err){out.innerHTML='<p class="scan-err">Scan failed — check the URL and try again.</p>';}
+    btn.disabled=false;btn.textContent=original;
+    out.hidden=false;out.scrollIntoView({behavior:"smooth",block:"nearest"});
+   });
+  });
+})();
+</script>
+</body>
+</html>

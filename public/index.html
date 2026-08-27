@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentReady Woo — agentic-commerce readiness toolkit for self-hosted WooCommerce stores</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  textarea, pre { width: 100%; box-sizing: border-box; }
+  code { background: #f0f0f0; padding: 0.1rem 0.3rem; }
+</style>
+</head>
+<body>
+<h1>AgentReady Woo — agentic-commerce readiness toolkit for self-hosted WooCommerce stores</h1>
+<p>A deploy-once Cloudflare Worker + MCP server that connects to a store's existing WooCommerce REST API (the merchant's own infra, no per-call upstream cost) and exposes: (1) an agent-readable product feed generated from the live catalog; (2) /.well-known/agenticweb.md discovery metadata so agents can find capabilities; (3) an MCP tool surface agents can call (search products, get offer details, create signed cart links); (4) a dashboard showing agent traffic and missed opportunities. Checkout stays human-approved through signed cart links completed in the buyer's browser — no card data ever touches the service.</p>
+<p><strong>Price:</strong> $0.0500 per call</p>
+
+<form id="f">
+  <textarea id="input" rows="4" placeholder="JSON input, e.g. {}"></textarea>
+  <button type="submit">Run</button>
+</form>
+<pre id="out"></pre>
+
+<h2>Use this via API or MCP</h2>
+<p>HTTP: <code>POST /api/v1/agentready_woo_agentic_commerce_readiness_toolkit_for_self_h</code></p>
+<p>MCP: <code>POST /mcp {"tool": "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", "input": {}}</code></p>
+
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = JSON.parse(document.getElementById("input").value || "{}");
+  const res = await fetch("/api/v1/agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", {
+    method: "POST", headers: {"content-type": "application/json"},
+    body: JSON.stringify({ input }),
+  });
+  document.getElementById("out").textContent = JSON.stringify(await res.json(), null, 2);
+});
+</script>
+</body>
+</html>
