@@ -263,9 +263,12 @@ export async function runTool(input: ToolInput, configOverride?: ServiceConfig):
       const query = String(input.query ?? "").slice(0, 200);
       const perPage = Math.min(Math.max(Number(input.per_page ?? 10) || 10, 1), 20);
       const page = Math.max(Number(input.page ?? 1) || 1, 1);
+      // No orderby here: "relevance" isn't a value the WooCommerce REST API
+      // accepts (rest_invalid_param) -- only date/id/include/title/slug/
+      // modified/popularity/rating/price/menu_order are. Omitting it lets
+      // WooCommerce use its own default ordering for a `search` query.
       const { offers, total } = await listProducts(config, {
         search: query, per_page: String(perPage), page: String(page),
-        orderby: "relevance",
       });
       return { action, query, page, total_results: total, offers };
     }
@@ -334,6 +337,6 @@ time-limited signed cart link.
 
 ## Purchase boundary
 No payment credentials flow through this service. Agents should present the
-signed cart link to the buyer; the buyer completes checkout on ${store}.
+signed cart link to the buyer; the buyer completes checkout on ${store || "the merchant's own site"}.
 `;
 }

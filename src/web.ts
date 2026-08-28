@@ -32,9 +32,9 @@ h1{font-family:var(--serif);font-weight:500;font-size:clamp(28px,3.6vw,40px);lin
 label{display:block;font-size:12.5px;font-weight:600;color:var(--ink2);margin:16px 0 5px}
 input[type=text],input[type=email],input[type=password],input[type=url]{width:100%;border:1px solid var(--line);border-radius:6px;padding:11px 13px;font-size:14.5px;font-family:var(--sans);background:#fff;color:var(--ink)}
 input:focus{outline:none;border-color:var(--acc)}
-.btn{display:inline-block;background:var(--acc);color:#fff;font-weight:600;font-size:15px;border:0;border-radius:6px;padding:13px 24px;cursor:pointer;text-decoration:none;font-family:var(--sans)}
-.btn:hover{background:var(--acc-dark);color:#fff;text-decoration:none}
-.btn-line{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.btn{display:inline-block;background:var(--acc);color:#fff;font-weight:600;font-size:15px;border:0;border-radius:6px;padding:13px 24px;cursor:pointer;text-decoration:none;font-family:var(--sans);transition:background .16s ease,transform .16s cubic-bezier(.2,.8,.2,1),box-shadow .16s ease}
+.btn:hover{background:var(--acc-dark);color:#fff;text-decoration:none;transform:translateY(-1px);box-shadow:0 6px 16px rgba(196,63,27,.28)}
+.btn-line{background:transparent;color:var(--ink);border:1px solid var(--ink);transition:background .16s ease,color .16s ease}
 .btn-line:hover{background:var(--ink);color:#fff}
 .err{background:#FCEEE8;border-left:3px solid var(--acc);padding:10px 14px;margin-bottom:16px;font-size:14px;color:#7a2e12}
 .ok{background:#EAF4EE;border-left:3px solid var(--ok);padding:10px 14px;margin-bottom:16px;font-size:14px;color:#14532d}
@@ -52,8 +52,28 @@ tr:last-child td{border-bottom:0}
 .score span{font-size:26px;color:var(--ink3)}
 .badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
 .badge.pro{border-color:var(--acc);color:var(--acc)}
+a.badge-link{transition:border-color .16s ease,color .16s ease}
+a.badge-link:hover{border-color:var(--acc);color:var(--acc)}
 code{background:#f0efea;padding:.1rem .35rem;border-radius:4px;font-size:13px}
 .foot{max-width:1140px;margin:0 auto;padding:0 32px 64px;color:var(--ink3);font-size:13px}
+
+/* ── upgrade / upsell card: the free -> paid conversion moment ────────
+   Every free-tier "you're capped" touchpoint (dashboard nudge, billing
+   page, post-scan upsell) shares this one component so the pitch reads
+   the same wherever it's hit. */
+.upsell{background:var(--dark);border-color:var(--dark);color:#fff;animation:card-in .4s cubic-bezier(.2,.8,.2,1)}
+.upsell .kicker{color:var(--acc)}
+.upsell h2,.upsell strong.headline{font-family:var(--serif);font-size:21px;font-weight:500;color:#fff;display:block;margin-bottom:8px}
+.upsell p{color:#A9A5B5}
+.upsell-benefits{list-style:none;margin:14px 0 20px;padding:14px 0 0;border-top:1px solid #322E3B;display:flex;flex-direction:column;gap:8px}
+.upsell-benefits li{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:#D8D5DE}
+.upsell-benefits li span{flex:0 0 auto;width:16px;height:16px;display:grid;place-items:center;border-radius:50%;background:rgba(31,122,77,.22);color:#5FCB93;font-size:10px;font-weight:700;margin-top:1px}
+.btn-pulse{animation:cta-pulse 1.8s ease-out .6s 2}
+@keyframes card-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes cta-pulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 6px rgba(228,87,46,.22)}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
 @media (max-width:640px){
   nav .in{flex-wrap:wrap;row-gap:10px;padding:14px 20px}
   .logo{font-size:15px}
@@ -62,6 +82,9 @@ code{background:#f0efea;padding:.1rem .35rem;border-radius:4px;font-size:13px}
   .wrap{padding:40px 20px 64px}
   .foot{padding:0 20px 40px}
   .score{font-size:52px}
+  .kv{flex-wrap:wrap;row-gap:4px}
+  .kv .k{width:100%}
+  .kv .v{text-align:left}
 }
 `;
 
@@ -200,18 +223,23 @@ export function resetLinkExpiredPage(): string {
 
 const APP_NAV = (email: string) => `<span style="color:var(--ink3);font-size:13.5px">${escapeHtml(email)}</span><a href="/dashboard/account">Account</a><a href="/dashboard/billing">Billing</a><a href="/logout">Log out</a>`;
 
-export function dashboardPage(email: string, storesHtml: string, addStoreCta: string): string {
+/** `upgradeNudge` is only non-empty when at least one store is on the free
+ * plan — a Pro account never sees its own pitch reflected back at it. */
+export function dashboardPage(email: string, storesHtml: string, addStoreCta: string, upgradeNudge = ""): string {
   return layout("Dashboard", `
 <div class="kicker"><span class="no">02</span>Your stores</div>
 <h1>Agent traffic, live.</h1>
 <p class="lede">Endpoints agents read, requests they made, and what each store is worth to them.</p>
+${upgradeNudge}
 ${storesHtml}
 ${addStoreCta}
 `, APP_NAV(email));
 }
 
 export function storeCard(store: { id: string; name: string; storeUrl: string; plan: string; publicBaseUrl: string; agentHits: number }): string {
-  const planBadge = store.plan === "free" ? `<span class="badge">Free · top 10 products</span>` : `<span class="badge pro">${escapeHtml(store.plan)}</span>`;
+  const planBadge = store.plan === "free"
+    ? `<a class="badge badge-link" href="/dashboard/billing">Free · top 10 products</a>`
+    : `<span class="badge pro">${escapeHtml(store.plan)}</span>`;
   return `
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
@@ -263,6 +291,28 @@ ${secretField}
 </div>`, APP_NAV(email));
 }
 
+/** Shared free -> Pro pitch, used on the billing page and (compact) on the
+ * dashboard. `eyebrow` lets each call site frame the same offer for its own
+ * moment ("you're capped right now" vs. a standing reminder) without
+ * duplicating the benefits list or the pulse-CTA treatment. */
+export function proUpgradeCard(eyebrow: string, headline: string, proLink: string | undefined): string {
+  const cta = proLink
+    ? `<a class="btn btn-pulse" href="${escapeHtml(proLink)}">Unlock Pro — $99 once</a>`
+    : `<a class="btn btn-pulse" href="mailto:hello@utilityhouse.xyz?subject=Pro">Unlock Pro — $99 once</a>`;
+  return `
+<div class="card upsell">
+<div class="kicker">${escapeHtml(eyebrow)}</div>
+<strong class="headline">${escapeHtml(headline)}</strong>
+<p>One payment, no renewal — nothing to cancel later.</p>
+<ul class="upsell-benefits">
+<li><span>✓</span>Unlimited offers — the free plan shows only your top 10</li>
+<li><span>✓</span>Signed cart handoff, so agents can actually check out</li>
+<li><span>✓</span>Weekly agent-activity digest by email</li>
+</ul>
+${cta}
+</div>`;
+}
+
 export function billingPage(plan: string, email: string, paddleLinks: { report?: string; pro?: string; agency?: string }): string {
   // The deep report is fulfilled automatically off the buyer's account
   // (their most recent scan, emailed right after the webhook fires) — see
@@ -277,9 +327,8 @@ export function billingPage(plan: string, email: string, paddleLinks: { report?:
   // subscription (it bundles ongoing priority support), so that message
   // stays accurate only for Agency.
   const upgrade = plan === "free"
-    ? `${paddleLinks.pro ? `<a class="btn" href="${escapeHtml(paddleLinks.pro)}">Unlock Pro — $99 once</a>` : `<a class="btn" href="mailto:hello@utilityhouse.xyz?subject=Pro">Unlock Pro — $99 once</a>`}
-       <p style="color:var(--ink2);font-size:14px;margin-top:10px">Unlimited offers · signed cart handoff · weekly agent-activity digest — one payment, no renewal.</p>
-       <p style="margin-top:16px">${reportLink}</p>`
+    ? `${proUpgradeCard("Upgrade", "Unlock unlimited offers.", paddleLinks.pro)}
+       <div class="card"><p style="margin:0">Also available: ${reportLink}</p></div>`
     : plan === "pro"
     ? `<div class="ok">Pro is unlocked on your account — permanently, no subscription to manage. Check your email for the receipt.</div>`
     : `<div class="ok">Your plan is active: ${escapeHtml(plan)}. Manage payments via Paddle — check your email for the receipt and management link.</div>`;
@@ -293,7 +342,7 @@ export function billingPage(plan: string, email: string, paddleLinks: { report?:
 <div class="kv"><span class="k">Agent-request dashboard</span><span class="v">Included</span></div>
 <div class="kv"><span class="k">Weekly agent-activity email</span><span class="v">${plan === "free" ? "—" : "Included"}</span></div>
 </div>
-<div class="card">${upgrade}</div>
+${upgrade}
 `, `<a href="/dashboard" style="color:var(--ink2)">← Dashboard</a>`);
 }
 
@@ -423,10 +472,10 @@ export function scanResultPage(result: {
 <table><tr><th></th><th>Check</th><th>Detail</th></tr>${rows}</table>
 </div>
 ${recs ? `<div class="card"><strong>What to do next</strong><ul style="margin:10px 0 0 20px">${recs}</ul></div>` : ""}
-<div class="card" style="background:var(--dark);border-color:var(--dark);color:#fff">
-<strong style="font-family:var(--serif);font-size:21px;font-weight:500">Become buyable, not just readable.</strong>
-<p style="color:#A9A5B5;margin:8px 0 16px">Signed cart handoff + agent analytics. Free for your top 10 products.</p>
-<a class="btn" href="/signup">Create free account</a>
+<div class="card upsell">
+<strong class="headline">Become buyable, not just readable.</strong>
+<p>Signed cart handoff + agent analytics. Free for your top 10 products.</p>
+<a class="btn btn-pulse" href="/signup">Create free account</a>
 </div>
 `, `<a href="/scan" style="color:var(--ink2)">← Scan another store</a>`);
 }

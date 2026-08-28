@@ -11,6 +11,7 @@ import { handleApiCall, API_PATH } from "./api.ts";
 import { handleAppRequest, type AppEnv } from "./app.ts";
 import { buildAgenticWebMd, configFromEnv, configureService } from "./service.ts";
 import { AppStore } from "./core/appStore.ts";
+import { pingIndexNow } from "./core/indexnow.ts";
 import { sendEmail, weeklyDigestEmailHtml } from "./core/email.ts";
 
 const PRODUCT_ID = "early-3426536d88daa242";
@@ -259,6 +260,15 @@ p{color:var(--ink2);margin-bottom:18px}
         // trigger string here, and usersDueForDigest already makes this
         // safe to check every 5 minutes without double-sending.
         ["send_weekly_digests", () => sendWeeklyDigests(store, new AppStore(env.FINANCIAL_DB!), env)],
+        // Also piggybacks on the 5-minute trigger, self-paced to once a day
+        // by only running in the first tick of hour 3 UTC — IndexNow has no
+        // per-URL rate limit that matters at this site's size, but there's
+        // no reason to hit it every 5 minutes when the sitemap rarely changes.
+        ["ping_indexnow", () => {
+          const now = new Date();
+          if (now.getUTCHours() !== 3 || now.getUTCMinutes() >= 5) return Promise.resolve();
+          return pingIndexNow((env.PUBLIC_BASE_URL ?? "").replace(/\/+$/, ""));
+        }],
       ];
       for (const [name, run] of phases) {
         try { await run(); }

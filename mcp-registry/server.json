@@ -1,8 +1,8 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "com.utilityhouse/agentready-woo",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "xyz.utilityhouse/agentready-woo",
   "display_name": "AgentReady Woo",
-  "description": "Agentic commerce readiness for self-hosted WooCommerce stores. Free scan grades a store's agent-readiness out of 100, then exposes its live catalog through a per-store MCP tool surface: search_products, get_offer, get_feed, create_cart_link, verify_cart_link. Checkout completes on the merchant's own store via a signed cart handoff — no card data passes through this service.",
+  "description": "Scans self-hosted WooCommerce stores for AI-agent readiness and exposes a live MCP product catalog.",
   "version": "0.1.0",
   "remotes": [
     {

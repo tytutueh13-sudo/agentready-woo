@@ -20,6 +20,7 @@ export interface StatusPayload {
   budgetState: "healthy" | "disabled";
   d1ConcurrencyVerified: boolean;
   x402InteropVerified: boolean;
+  note: string;
 }
 
 export function health(serviceName: string, version: string,
@@ -44,5 +45,8 @@ export function status(serviceName: string, version: string,
     revenueGuardState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     budgetState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     d1ConcurrencyVerified, x402InteropVerified,
+    note: "This reports the experimental x402 per-call payment rail for the " +
+      "readiness-scan tool only. The store-scanning product and its Paddle " +
+      "billing are a separate system and are unaffected by this status.",
   };
 }

@@ -13,10 +13,10 @@ import {
   signupPage, loginPage, dashboardPage, storeCard, storeFormPage,
   billingPage, scanFormPage, scanResultPage, readForm, escapeHtml,
   forgotPasswordPage, resetPasswordPage, resetLinkExpiredPage, accountPage,
-  adminUsersPage, adminUserDetailPage,
+  adminUsersPage, adminUserDetailPage, proUpgradeCard,
 } from "./web.ts";
 import { handlePaddleWebhook, type PaddleEnv } from "./webhooks.ts";
-import { handleMcpCall } from "./mcp.ts";
+import { TOOL_NAME } from "./mcp.ts";
 import { sendEmail, passwordResetEmailHtml } from "./core/email.ts";
 import type { RevenueGuard } from "./core/guard.ts";
 import type { ServiceConfig } from "./service.ts";
@@ -314,16 +314,47 @@ export async function handleAppRequest(
       note: limited.truncated ? "Free plan shows the top 10 products — upgrade for unlimited offers." : undefined,
     }, null, 1), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300" } });
   }
+  // Per-store commerce tool surface (search/offer/cart-link for one
+  // merchant's own catalog): gated by the store's Paddle plan, the same
+  // top-10 free-tier limit /feed already enforces — NOT by the x402
+  // per-call payment rail. That rail belongs to a different product (the
+  // global readiness-scan tool at POST /mcp, index.ts); a merchant who
+  // paid via Paddle for "unlimited offers, signed cart handoff" expects
+  // agents to actually be able to call this, not hit an unrelated wall.
   if (path.startsWith("/mcp/") && method === "POST" && app) {
     const store = await app.getStore(path.slice("/mcp/".length));
     if (!store || store.status !== "active") return new Response(JSON.stringify({ error: "store not found" }), { status: 404, headers: { "content-type": "application/json" } });
     const { config } = await storeServiceConfig(store, env as Record<string, string | undefined>, originOf(request));
-    const body = await request.json() as { tool: string; input: Record<string, unknown>; requestId?: string };
-    body.requestId = request.headers.get("Idempotency-Key") ?? body.requestId;
-    const result = await handleMcpCall(guard, body, PRICE_PER_CALL, PRODUCT_ID, config);
-    const httpStatus = result.stage === "payment" ? 402 : result.stage === "auth" ? 401 : result.error ? 400 : 200;
-    const { _paymentResponse, ...publicResult } = result;
-    return new Response(JSON.stringify(publicResult), { status: httpStatus, headers: { "content-type": "application/json" } });
+    const body = await request.json() as { tool: string; input: Record<string, unknown> };
+    if (body.tool !== TOOL_NAME) {
+      return new Response(JSON.stringify({ error: `unknown tool: ${body.tool}` }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    const { runTool } = await import("./service.ts");
+    const action = typeof body.input?.action === "string" ? body.input.action : "";
+    try {
+      if (action === "get_feed" || action === "search_products") {
+        const result = await runTool(body.input, config);
+        const offers = Array.isArray(result.offers) ? result.offers as Array<Record<string, unknown>> : [];
+        const limited = applyOfferLimit(offers, store.plan);
+        return new Response(JSON.stringify({ result: { ...result, offers: limited.offers, truncated: limited.truncated } }), { headers: { "content-type": "application/json" } });
+      }
+      if (action === "get_offer" || action === "create_cart_link") {
+        const limit = offerLimitFor(store.plan);
+        if (limit >= 0) {
+          const productId = Number(body.input.product_id);
+          const feed = await runTool({ action: "get_feed" }, config);
+          const visibleIds = (Array.isArray(feed.offers) ? feed.offers as Array<{ id?: unknown }> : [])
+            .slice(0, limit).map((o) => Number(o.id));
+          if (!visibleIds.includes(productId)) {
+            return new Response(JSON.stringify({ error: "this product is outside the free plan's visible catalog — upgrade for unlimited offers" }), { status: 403, headers: { "content-type": "application/json" } });
+          }
+        }
+      }
+      const result = await runTool(body.input, config);
+      return new Response(JSON.stringify({ result }), { headers: { "content-type": "application/json" } });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "tool call failed" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
   }
 
   // ---- account: signup / login / logout ----
@@ -515,7 +546,13 @@ export async function handleAppRequest(
         : `<div class="card"><strong>Store limit reached on the ${escapeHtml(plan)} plan.</strong>
            <p class="sub" style="margin:8px 0 12px">${plan === "free" ? "Upgrade to Agency for 25 stores, or manage your existing store." : "Agency supports 25 stores."}</p>
            <a class="btn btn-line" href="/dashboard/billing">Billing</a></div>`;
-      return new Response(dashboardPage(session.email, cards.join("\n"), addCta), { headers: { "content-type": "text/html; charset=utf-8" } });
+      // Only a connected, free-plan store has actually hit the 10-product
+      // cap — a brand-new account with zero stores hasn't earned this pitch
+      // yet, and a Pro/Agency account shouldn't see its own upgrade offer.
+      const upgradeNudge = stores.length && plan === "free"
+        ? proUpgradeCard("You're capped at the top 10", "Your other products are invisible to AI agents.", paddleLinks(env).pro)
+        : "";
+      return new Response(dashboardPage(session.email, cards.join("\n"), addCta, upgradeNudge), { headers: { "content-type": "text/html; charset=utf-8" } });
     }
 
     if (path === "/dashboard/store" && method === "GET") {

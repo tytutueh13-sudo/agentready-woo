@@ -115,6 +115,116 @@ test("GET /feed/:id on a pro store is not truncated and records no wall_shown", 
   assert.equal(summary.find(r => r.kind === "wall_shown")?.count, 0);
 });
 
+// POST /mcp/:id used to require x402 payment proof for every call, sharing
+// the guard with the unrelated global readiness-scan tool. A merchant on a
+// paid plan expects agents to actually be able to call this — see the fix
+// in app.ts for the full reasoning. These tests lock in the replacement
+// behavior: gated by the store's plan, not by an unrelated payment rail.
+function mockWooFetch(): typeof fetch {
+  return (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    const idMatch = url.match(/\/products\/(\d+)(?:\?|$)/);
+    if (idMatch) {
+      const id = Number(idMatch[1]);
+      return new Response(JSON.stringify({ id, name: `Item ${id}`, price: "10.00", stock_status: "instock", status: "publish" }), { status: 200 });
+    }
+    return new Response(JSON.stringify(
+      Array.from({ length: 12 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", stock_status: "instock", status: "publish" })),
+    ), { status: 200, headers: { "x-wp-total": "12" } });
+  }) as typeof fetch;
+}
+
+test("POST /mcp/:id get_feed on a free store is truncated to 10, same as /feed", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  await setupUserWithStore(app, "free");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockWooFetch();
+  try {
+    const request = new Request("https://worker.example.com/mcp/s1", {
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_feed" } }),
+    });
+    const url = new URL(request.url);
+    const res = await handleAppRequest(request, env({}, db), url, guard());
+    assert.equal(res?.status, 200);
+    const body = await res!.json() as { result: { offers: unknown[]; truncated: boolean } };
+    assert.equal(body.result.offers.length, 10);
+    assert.equal(body.result.truncated, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /mcp/:id get_offer for a product outside the free plan's top 10 is refused, not payment-gated", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  await setupUserWithStore(app, "free");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockWooFetch();
+  try {
+    const request = new Request("https://worker.example.com/mcp/s1", {
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 11 } }),
+    });
+    const url = new URL(request.url);
+    const res = await handleAppRequest(request, env({}, db), url, guard());
+    assert.equal(res?.status, 403);
+    const body = await res!.json() as { error: string };
+    assert.match(body.error, /upgrade/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /mcp/:id get_offer for a product inside the free plan's top 10 succeeds with no payment step", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  await setupUserWithStore(app, "free");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockWooFetch();
+  try {
+    const request = new Request("https://worker.example.com/mcp/s1", {
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 3 } }),
+    });
+    const url = new URL(request.url);
+    const res = await handleAppRequest(request, env({}, db), url, guard());
+    assert.equal(res?.status, 200);
+    const body = await res!.json() as { result: { offer: { id: number } } };
+    assert.equal(body.result.offer.id, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /mcp/:id get_offer on a pro store is never limited, for any product id", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  await setupUserWithStore(app, "pro");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockWooFetch();
+  try {
+    const request = new Request("https://worker.example.com/mcp/s1", {
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 11 } }),
+    });
+    const url = new URL(request.url);
+    const res = await handleAppRequest(request, env({}, db), url, guard());
+    assert.equal(res?.status, 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /mcp/:id rejects an unknown tool name", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  await setupUserWithStore(app, "free");
+  const request = new Request("https://worker.example.com/mcp/s1", {
+    method: "POST", body: JSON.stringify({ tool: "not-the-right-tool", input: { action: "get_feed" } }),
+  });
+  const url = new URL(request.url);
+  const res = await handleAppRequest(request, env({}, db), url, guard());
+  assert.equal(res?.status, 400);
+});
+
 test("GET /dashboard/billing links both Pro and the deep report to internal checkout redirects, not the raw Paddle URL", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
