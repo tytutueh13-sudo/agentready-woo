@@ -104,6 +104,20 @@ test("every advertised tool declares annotations, because directories read them"
   }
 });
 
+test("every advertised output schema has the MCP-compatible object root Smithery requires", () => {
+  const gate = releaseGateMcpTools({}, { app: {} as never, workflow: undefined } as never);
+  const all = [publicScanMcpTool(fetch), ...gate];
+  for (const tool of all) {
+    if (tool.outputSchema) {
+      assert.equal(
+        (tool.outputSchema as { type?: unknown }).type,
+        "object",
+        `${tool.name} must advertise an object-root output schema`,
+      );
+    }
+  }
+});
+
 test("a tool that writes does not claim to be read-only", () => {
   const gate = releaseGateMcpTools({}, { app: {} as never, workflow: undefined } as never);
   const byName = new Map(gate.map(t => [t.name, t]));
