@@ -1,0 +1,8 @@
+{
+  "name": "woocommerce-release-preflight-batch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Thin Apify Actor over the AgentReady Woo public preflight route. Contains no scoring logic.",
+  "dependencies": { "apify": "^3.2.6" }
+}

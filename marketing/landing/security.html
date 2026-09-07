@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security — AgentReady Woo</title>
+<meta name="description" content="What AgentReady Woo reads, what it never reads, the ownership boundary, and how to report an issue.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+:root{--paper:#FAF9F5;--ink:#17151C;--ink2:#55515E;--ink3:#747079;--line:#E5E2DB;--acc:#E4572E;
+--serif:'Fraunces',serif;--sans:'Spline Sans',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+header{border-bottom:1px solid var(--line)}
+header .in{max-width:860px;margin:0 auto;padding:20px 32px;display:flex;justify-content:space-between;align-items:center}
+.logo{display:flex;align-items:baseline;gap:8px;font-weight:600;text-decoration:none;color:var(--ink)}
+.logo .mark{font-family:var(--serif);font-style:italic;font-weight:600}
+header nav a{color:var(--ink2);text-decoration:none;font-size:14px;margin-left:18px}
+header nav a:hover{color:var(--ink)}
+main{max-width:860px;margin:0 auto;padding:56px 32px 80px}
+h1{font-family:var(--serif);font-weight:500;font-size:clamp(30px,4vw,42px);letter-spacing:-.01em}
+.updated{font-family:var(--mono);font-size:12px;color:var(--ink3);margin-top:10px;letter-spacing:.06em;text-transform:uppercase}
+h2{font-family:var(--serif);font-weight:500;font-size:22px;margin:40px 0 12px}
+p,li{color:var(--ink2);margin-bottom:10px}
+ul{padding-left:22px;margin-bottom:14px}
+strong{color:var(--ink)}
+footer{border-top:1px solid var(--line);margin-top:40px}
+footer .in{max-width:860px;margin:0 auto;padding:26px 32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13.5px;color:var(--ink3)}
+footer a{color:var(--ink2);text-decoration:none;margin-left:16px}
+footer a:hover{color:var(--acc-dark)}
+
+.note{border-left:3px solid var(--acc);padding:2px 0 2px 14px;margin:18px 0}
+.note p{margin:0}
+dl.pairs{margin:14px 0}
+dl.pairs dt{font-family:var(--mono);font-size:12.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:14px}
+dl.pairs dd{margin:4px 0 0;color:var(--ink2)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2)}
+th{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);white-space:nowrap}
+/* #E4572E is 3.5:1 on this paper — below AA for body text. The accent stays
+   the brand colour for fills; link text uses the darker one at 4.89:1. */
+a{color:#C43F1B}
+a:hover{color:#9C3411}
+a:focus-visible,nav a:focus-visible,footer a:focus-visible{outline:2px solid #C43F1B;outline-offset:3px}
+.note{border-left-color:#C43F1B}
+/* a wide table must scroll inside itself, not push the page sideways */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{min-width:min(100%,520px)}
+@media (max-width:520px){main{padding-left:20px;padding-right:20px}}
+/* four nav items do not fit 390px on one line; let the header wrap instead of
+   pushing the document sideways */
+header .in{flex-wrap:wrap;row-gap:8px}
+header nav{display:flex;flex-wrap:wrap;gap:0 16px}
+header nav a{margin-left:0}
+footer .in{flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <a class="logo" href="/"><span class="mark">AgentReady</span> <span>/ Woo</span></a>
+  <nav><a href="/support">Support</a><a href="/security">Security</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+</div></header>
+
+<main>
+<h1>Security</h1>
+<p class="updated">Last updated · September 7, 2026</p>
+
+<p>This page describes what the product actually does. It is not a
+certification, and it does not claim one.</p>
+
+<h2>Two surfaces, one boundary</h2>
+<div class="scroll"><table>
+<tr><th>Surface</th><th>Access</th><th>What it reads</th></tr>
+<tr><td>Public preflight and scan</td><td>none &mdash; no account, no credentials</td><td>public pages and the public WooCommerce Store API of the origin you name</td></tr>
+<tr><td>Release Gate</td><td>bearer token, scoped, plus a verified ownership record for that store</td><td>signed aggregate evidence produced by the WordPress plugin on your own store</td></tr>
+</table></div>
+<p>The public tools cannot reach the Release Gate, and the Release Gate cannot
+run against a store whose ownership has not been proved. The three
+owner-authorized tools return <code>AUTH_REQUIRED</code> or
+<code>OWNERSHIP_REQUIRED</code> rather than a partial answer.</p>
+
+<h2>What the plugin sends</h2>
+<p><strong>Signed aggregate evidence only.</strong> It does not read or transmit
+customer records, orders, payments, URLs, note bodies or product content. Your
+WordPress keys never enter an evidence packet or a result packet.</p>
+<p>Ownership is proved with a 15-minute signed challenge. It expires.</p>
+
+<h2>What the public checks will not do</h2>
+<ul>
+<li>They are read-only. No tool writes to your store.</li>
+<li>They refuse private and link-local addresses, unsafe redirects, DNS rebinding, oversized responses and unparseable content, with a finite reason code for each.</li>
+<li>They return aggregate check evidence; no product text or customer data crosses the boundary.</li>
+<li>They are rate limited: 3 per target origin per day, 10 per calling address per day.</li>
+</ul>
+
+<h2>Settlement</h2>
+<p>Release Gate settlement is <strong>disabled</strong>. Any price shown for it
+is a beta price and is not available for purchase. A replayed result claim is
+never billable.</p>
+
+<h2>Reporting a vulnerability</h2>
+<p>Email <strong>hello@utilityhouse.xyz</strong> with <code>security</code> in
+the subject.</p>
+<div class="note"><p>Please include what you did, what you observed and what you
+expected. Please do not include working credentials, customer data, or data from
+a store you do not operate &mdash; a description is enough.</p></div>
+<p>We do not run a paid bounty, and we do not publish a response-time
+commitment we have not measured. We will confirm receipt and tell you what we
+find.</p>
+<p>Please do not run automated load, denial-of-service or high-volume scanning
+against this service. The rate limits are small on purpose.</p>
+
+<h2>Known limitations, stated rather than hidden</h2>
+<ul>
+<li><strong>Diagnostic accuracy against real merchant stores is unmeasured.</strong> Synthetic fixtures and a disposable canary do not establish it.</li>
+<li>A <code>BLOCKED</code> or <code>UNMEASURED</code> result means we could not tell &mdash; it is not a finding about your store.</li>
+<li>We do not measure ranking or visibility inside any private agent network, and we make no claim about one.</li>
+</ul>
+
+<h2>Related</h2>
+<p><a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot;
+<a href="/status">Status</a> &middot; <a href="/support">Support</a></p>
+
+</main>
+
+<footer><div class="in">
+  <span>&copy; 2026 AgentReady — a UtilityHouse product</span>
+  <span><a href="/support">Support</a> &middot; <a href="/security">Security</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/refund-policy">Refund Policy</a></span>
+</div></footer>
+</body>
+</html>

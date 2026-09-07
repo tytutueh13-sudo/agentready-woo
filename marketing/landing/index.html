@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AgentReady Woo — Your store, readable by AI shoppers</title>
+<meta name="robots" content="noindex,nofollow">
+<title>AgentReady Woo — Store Preflight and Release Gate</title>
 <link rel="canonical" href="https://app.utilityhouse.xyz/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="description" content="AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes to set up. No code.">
+<meta name="description" content="Run a passive WooCommerce Store Preflight, then verify an owned release with version-pinned evidence. No order or payment is created.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AgentReady / Woo">
-<meta property="og:title" content="AgentReady Woo — Your store, readable by AI shoppers">
-<meta property="og:description" content="ChatGPT already shops. Your store isn't invited. AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes. No code.">
+<meta property="og:title" content="AgentReady Woo — Store Preflight and Release Gate">
+<meta property="og:description" content="Passive preflight and ownership-authorized, evidence-based WooCommerce release verification.">
 <meta property="og:image" content="https://app.utilityhouse.xyz/og-image.png">
 <meta property="og:url" content="https://app.utilityhouse.xyz/">
 <meta name="twitter:card" content="summary_large_image">
@@ -20,7 +22,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spline+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#FAF9F5; --ink:#17151C; --ink2:#55515E; --ink3:#98949F; --line:#E5E2DB;
+  --paper:#FAF9F5; --ink:#17151C; --ink2:#55515E; --ink3:#747079; --line:#E5E2DB;
   --acc:#E4572E; --acc-dark:#C43F1B; --ok:#1F7A4D; --dark:#141218; --dark2:#1D1A24;
   --serif:'Fraunces',serif; --sans:'Spline Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
 }
@@ -29,12 +31,12 @@ html{background:var(--paper)}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1140px;margin:0 auto;padding:0 32px}
 section{padding:76px 0;border-top:1px solid var(--line)}
-.kicker{font-family:var(--mono);font-size:12px;color:var(--acc);margin-bottom:14px}
+.kicker{font-family:var(--mono);font-size:12px;color:var(--acc-dark);margin-bottom:14px}
 .kicker .no{color:var(--ink3);margin-right:10px}
 h2{font-family:var(--serif);font-weight:500;font-size:clamp(28px,3.6vw,40px);line-height:1.15;letter-spacing:-.01em;max-width:640px}
 .lede{color:var(--ink2);font-size:17px;max-width:560px;margin-top:14px}
 .btn{font-weight:600;font-size:15px;border-radius:6px;padding:13px 24px;border:1px solid transparent;cursor:pointer;text-decoration:none;display:inline-block}
-.btn-acc{background:var(--acc);color:#fff}
+.btn-acc{background:var(--acc);color:var(--ink)}
 .btn-acc:hover{background:var(--acc-dark)}
 .btn-line{background:transparent;color:var(--ink);border-color:var(--ink)}
 .btn-line:hover{background:var(--ink);color:#fff}
@@ -48,10 +50,12 @@ nav .in{max-width:1140px;margin:0 auto;padding:16px 32px;display:flex;align-item
 nav .links{display:flex;gap:24px;font-size:14px;align-items:center}
 nav .links a{color:var(--ink2);text-decoration:none}
 nav .links a:hover{color:var(--ink)}
-nav .cta{color:var(--acc);font-weight:600}
+nav .cta{color:var(--acc-dark);font-weight:600}
+nav .links a,.btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 
 /* hero */
 .hero{position:relative;color:#fff;overflow:hidden;background:var(--dark)}
+.hero{background:#141218 url(demo-preflight-poster.jpg) center/cover no-repeat}
 .hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hero .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,24,.66),rgba(20,18,24,.5) 55%,rgba(20,18,24,.88) 100%)}
 .hero .in{position:relative;max-width:1140px;margin:0 auto;padding:130px 32px 96px}
@@ -72,7 +76,7 @@ nav .cta{color:var(--acc);font-weight:600}
 .flow-step:first-of-type{border-top:0}
 .flow-step.flip{grid-template-columns:7fr 5fr}
 .flow-step.flip .txt{order:2}
-.step-no{font-family:var(--mono);font-size:13px;color:var(--acc);margin-bottom:10px}
+.step-no{font-family:var(--mono);font-size:13px;color:var(--acc-dark);margin-bottom:10px}
 .flow-step h3{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.2;margin-bottom:10px}
 .flow-step .d{color:var(--ink2);font-size:15px;margin-bottom:14px}
 .flow-step .fine{font-family:var(--mono);font-size:12px;color:var(--ink3);line-height:1.8}
@@ -83,8 +87,8 @@ nav .cta{color:var(--acc);font-weight:600}
 .ui .body{padding:22px}
 label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 5px;color:var(--ink2)}
 .inp{width:100%;border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:13px;background:#fff;color:var(--ink)}
-.inp:focus{outline:none;border-color:var(--acc)}
-.btn-sm{background:var(--acc);color:#fff;border:0;border-radius:6px;font-weight:600;font-size:13.5px;padding:10px 18px;cursor:pointer;margin-top:16px}
+.inp:focus{outline:none;border-color:var(--acc-dark)}
+.btn-sm{background:var(--acc);color:var(--ink);border:0;border-radius:6px;font-weight:600;font-size:13.5px;padding:10px 18px;cursor:pointer;margin-top:16px}
 .okline{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ok);margin-top:12px;font-family:var(--mono)}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500}
@@ -100,7 +104,7 @@ td.mono{font-size:12px;color:var(--ink2)}
 /* who strip */
 .who{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:36px}
 .who .cell{background:#fff;padding:30px 28px 26px}
-.who .cell-no{font-family:var(--mono);font-size:12px;color:var(--acc);margin-bottom:14px}
+.who .cell-no{font-family:var(--mono);font-size:12px;color:var(--acc-dark);margin-bottom:14px}
 .who .cell h4{font-family:var(--serif);font-weight:500;font-size:22px;margin-bottom:10px}
 .who .cell p{font-size:15px;color:var(--ink);max-width:400px}
 .who .cell p.cell-fine{font-size:13.5px;color:var(--ink2);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
@@ -111,8 +115,9 @@ td.mono{font-size:12px;color:var(--ink2)}
 .band .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
 .band .v{font-family:var(--serif);font-size:52px;font-weight:500;line-height:1}
 .band .v span{color:var(--acc)}
+.band .kicker{color:var(--acc)}
 .band .l{color:#A9A5B5;font-size:14px;margin-top:10px;max-width:260px}
-.band .src{margin-top:36px;font-family:var(--mono);font-size:11px;color:#6F6A80;letter-spacing:.03em}
+.band .src{margin-top:36px;font-family:var(--mono);font-size:11px;color:#868294;letter-spacing:.03em}
 .band .src a{color:#8B8698;text-decoration:none;border-bottom:1px solid rgba(139,134,152,.4)}
 .band .src a:hover{color:#C9C5D2;border-color:#C9C5D2}
 
@@ -126,16 +131,16 @@ td.mono{font-size:12px;color:var(--ink2)}
 .plan .pr span{font-family:var(--sans);font-size:13px;color:var(--ink3)}
 .plan .for{font-size:13px;color:var(--ink2);margin:6px 0 16px;min-height:40px}
 .plan ul{list-style:none;display:grid;gap:8px;font-size:13.5px;color:var(--ink2)}
-.plan li::before{content:"—";color:var(--acc);margin-right:8px}
+.plan li::before{content:"—";color:var(--acc-dark);margin-right:8px}
 .plan .btn{width:100%;text-align:center;margin-top:20px;padding:11px 0;font-size:14px}
-.plan .rec-tag{font-family:var(--mono);font-size:11px;color:var(--acc);margin-bottom:6px}
+.plan .rec-tag{font-family:var(--mono);font-size:11px;color:var(--acc-dark);margin-bottom:6px}
 
 /* faq */
 .faq{max-width:760px}
 details{border-bottom:1px solid var(--line);padding:18px 0}
 details:first-of-type{border-top:1px solid var(--line)}
 summary{font-weight:600;cursor:pointer;font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center}
-summary::after{content:"+";font-family:var(--mono);color:var(--acc);font-size:18px}
+summary::after{content:"+";font-family:var(--mono);color:var(--acc-dark);font-size:18px}
 details[open] summary::after{content:"–"}
 details p{margin-top:12px;color:var(--ink2);font-size:15px;max-width:640px}
 
@@ -143,7 +148,7 @@ details p{margin-top:12px;color:var(--ink2);font-size:15px;max-width:640px}
 .final{background:var(--dark);color:#fff;border-top:0}
 .final .in{max-width:1140px;margin:0 auto;padding:96px 32px 104px;display:grid;grid-template-columns:1.2fr .8fr;gap:64px;align-items:center}
 .final .kicker{color:var(--acc)}
-.final .kicker .no{color:#6F6A80}
+.final .kicker .no{color:#868294}
 .final h2{color:#fff;max-width:none;font-size:clamp(26px,2.9vw,36px)}
 .final p{color:#A9A5B5;margin-top:14px;font-size:17px;max-width:440px}
 .final .cta{margin-top:32px}
@@ -151,10 +156,10 @@ details p{margin-top:12px;color:var(--ink2);font-size:15px;max-width:640px}
 .rc-head{display:flex;align-items:center;gap:9px;color:#fff;font-size:12.5px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:14px}
 .rc-head .dot{width:7px;height:7px;border-radius:50%;background:#3DA668;flex:none}
 .receipt dl{display:grid;grid-template-columns:auto 1fr;gap:7px 20px;margin:0}
-.receipt dt{color:#6F6A80}
+.receipt dt{color:#868294}
 .receipt dd{margin:0;color:#E8E6EF;overflow-wrap:anywhere}
 .receipt dd em{font-style:normal;color:#3DA668;font-size:11px;margin-left:8px;letter-spacing:.04em}
-.rc-foot{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.09);font-size:11px;color:#6F6A80;letter-spacing:.05em}
+.rc-foot{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.09);font-size:11px;color:#868294;letter-spacing:.05em}
 footer{border-top:1px solid var(--line)}
 footer .in{max-width:1140px;margin:0 auto;padding:56px 32px 40px}
 footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:40px}
@@ -189,12 +194,13 @@ footer .legal a:hover{color:var(--ink)}
   nav .links{width:100%;justify-content:flex-end;flex-wrap:wrap;column-gap:16px;row-gap:6px;font-size:13px}
   nav .links a{display:inline-block;padding:13px 0}
 }
+@media (prefers-reduced-motion: reduce){.hero video{display:none}.hero{background:#141218 url(demo-preflight-poster.jpg) center/cover no-repeat}.hero .veil{background:linear-gradient(180deg,rgba(20,18,24,.78),rgba(20,18,24,.9))}*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 #scan-out table{width:100%;border-collapse:collapse;font-size:14.5px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 #scan-out td,#scan-out th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
 #scan-out tr:last-child td{border-bottom:0}
 #scan-out th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:500}
 #scan-out .pass{color:var(--ok);font-weight:600}
-#scan-out .fail{color:var(--acc);font-weight:600}
+#scan-out .fail{color:var(--acc-dark);font-weight:600}
 #scan-out .scan-score{font-family:var(--serif);font-size:56px;font-weight:500;line-height:1;margin:18px 0 4px}
 #scan-out .scan-score span{font-size:22px;color:var(--ink3)}
 #scan-out .recs{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-top:14px;font-size:14.5px}
@@ -204,9 +210,27 @@ footer .legal a:hover{color:var(--ink)}
 .scanbar{display:flex;gap:10px;flex-wrap:wrap;margin:26px 0 14px}
 .scanbar input{flex:1;min-width:250px;border:1px solid rgba(255,255,255,.28);border-radius:6px;padding:13px 15px;font-size:15px;font-family:var(--sans);background:rgba(20,18,24,.45);color:#fff}
 .scanbar input::placeholder{color:rgba(255,255,255,.55)}
-.scanbar input:focus{outline:none;border-color:var(--acc)}
+.scanbar input:focus{outline:none;border-color:var(--acc-dark)}
 .hero-see{color:rgba(255,255,255,.72);font-size:14px;text-decoration:none}
 .hero-see:hover{color:#fff}
+.cta-safety{font-size:12px;line-height:1.6;opacity:.72;margin:10px 0 0;max-width:46ch}
+
+.preview-block{margin:56px 0}
+.preview-h{margin:0 0 6px}
+.preview-sub{opacity:.75;font-size:14px;margin:0 0 18px;max-width:60ch}
+.scanprev{border:1px solid rgba(128,128,128,.28);border-radius:10px;padding:20px 22px;max-width:640px}
+.scanprev-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.scanprev-head b{font-size:34px;line-height:1}
+.scanprev-head b span{font-size:16px;opacity:.55}
+.scanprev-grade{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.scanprev-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.scanprev-list li{font-size:13px;line-height:1.5;padding-left:22px;position:relative}
+.scanprev-list li::before{position:absolute;left:0;top:0;font-weight:700}
+.scanprev-list li.ok::before{content:"\2713";color:#1c6b36}
+.scanprev-list li.no::before{content:"\2717";color:#a12626}
+.scanprev-list li em{opacity:.6;font-style:normal;font-size:12px;display:block}
+.scanprev-foot{font-size:13px;line-height:1.65;opacity:.8;margin:16px 0 0}
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:30px}.timeline .event{background:#fff;padding:22px;min-height:164px}.timeline .event b{display:block;font-family:var(--mono);font-size:11px;color:var(--acc-dark);margin-bottom:12px}.timeline .event h3{font-family:var(--serif);font-size:22px;line-height:1.15;font-weight:500}.timeline .event p{font-size:13.5px;color:var(--ink2);margin-top:8px}@media(max-width:880px){.timeline{grid-template-columns:1fr 1fr}}@media(max-width:480px){.timeline{grid-template-columns:1fr}.timeline .event{min-height:0}}
 </style>
 <script type="application/ld+json">
 {
@@ -218,10 +242,10 @@ footer .legal a:hover{color:var(--ink)}
   "url": "https://app.utilityhouse.xyz/",
   "description": "AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from, with checkout on the merchant's own site.",
   "offers": [
-    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "Readiness score and top-10 product feed, forever" },
-    { "@type": "Offer", "name": "Deep Report", "price": "9.00", "priceCurrency": "USD", "description": "One-off prioritized gap report, delivered by email" },
-    { "@type": "Offer", "name": "Pro", "price": "99.00", "priceCurrency": "USD", "description": "One-time purchase: full catalog exposed to agents, signed cart handoff, weekly activity email" },
-    { "@type": "Offer", "name": "Agency", "price": "199.00", "priceCurrency": "USD", "description": "25 client stores, one license, priority support" }
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "Readiness score and top-25 product feed, forever" },
+    { "@type": "Offer", "name": "Commerce Readiness Packet", "price": "9.00", "priceCurrency": "USD", "description": "One-off prioritized evidence packet, delivered by email" },
+    { "@type": "Offer", "name": "Pro", "price": "49.00", "priceCurrency": "USD", "description": "One-time purchase: full catalog exposed to agents, signed cart handoff, weekly activity email" },
+    { "@type": "Offer", "name": "Agency", "price": "99.00", "priceCurrency": "USD", "description": "25 client stores, one license, priority support" }
   ]
 }
 </script>
@@ -237,8 +261,13 @@ footer .legal a:hover{color:var(--ink)}
     },
     {
       "@type": "Question",
+      "name": "Can an agent get a real total, with tax and shipping?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. An agent can open an ACP checkout session against your store and get the landed total — your own tax rules, your own shipping rates, the same numbers your checkout would show — because AgentReady asks your store rather than estimating. What it does not do is take the money or hold the stock: the session says so plainly and hands the buyer a link to finish on your site, through the payment methods you already accept." }
+    },
+    {
+      "@type": "Question",
       "name": "Which AI agents does this actually reach?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. As standards like ACP and WebMCP stabilize, your feed format updates automatically — that's the point of building on the spec, not a hack." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. Your store's MCP server already speaks the Agentic Commerce Protocol (ACP 2026-04-17) for quoting, under the specification's own tool names, so an agent that has read the spec can price a basket against your store without being taught anything." }
     },
     {
       "@type": "Question",
@@ -262,32 +291,65 @@ footer .legal a:hover{color:var(--ink)}
     <a href="#product">Product</a>
     <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
-    <a href="#scan" class="cta">Check your store →</a>
+    <a href="#scan" class="cta">Run a free preflight →</a>
   </div>
 </div></nav>
 
 <!-- ============ HERO ============ -->
 <header class="hero">
-  <video autoplay muted loop playsinline preload="metadata" poster="hero-poster.jpg" src="hero-ad.mp4"></video>
+  <!-- A silent recording of the product answering twice: once with a score and
+       once with "could not tell". It replaces 38 seconds of stock street
+       footage of two identifiable people, which demonstrated nothing about the
+       product and whose licence and model releases are not on file here — see
+       registration-handoff/marketplace-kit/blockers.md.
+       No audio track exists in either file, so there is nothing to unmute.
+       If both sources fail to load, the poster painted on .hero shows through;
+       if that fails too, the solid ground does. -->
+  <video autoplay muted loop playsinline preload="metadata" poster="demo-preflight-poster.jpg"
+         aria-label="A silent recording of a store being checked twice: once answered, once could not tell.">
+    <source src="demo-preflight.webm" type="video/webm">
+    <source src="demo-preflight.mp4" type="video/mp4">
+  </video>
   <div class="veil"></div>
   <div class="in">
     <div class="kicker" style="color:#FFB59A">For WooCommerce stores</div>
-    <h1>ChatGPT already shops.<br><em>Your store isn't invited.</em></h1>
-    <p>AgentReady puts your WooCommerce catalog where AI shoppers are — readable, in stock, buyable. Five minutes to set up. No code.</p>
+    <h1>Know what changed<br><em>before a Woo release ships.</em></h1>
+    <p>Start with a free passive Store Preflight. An owned Release Gate verifies declared agent-commerce surfaces against pinned protocol evidence.</p>
     <form id="scan-hero" data-scan-form class="scanbar">
       <input data-scan-input type="url" required placeholder="https://yourstore.com" aria-label="Your store URL">
-      <button class="btn btn-acc" type="submit">Scan my store — free</button>
+      <button class="btn btn-acc" type="submit">Run a free store preflight</button>
     </form>
+    <p class="cta-safety">Preflight reads public surfaces only. Release Gate never creates an order, payment, inventory reservation, or customer email.</p>
     <a href="#product" class="hero-see">See it work ↓</a>
     <div class="facts">
-      <div class="fact"><b>1,000,000+</b>Shopify stores already sell inside ChatGPT. Woo is next.</div>
-      <div class="fact"><b>+38%</b>purchase completion from AI-referred shoppers (Adobe)</div>
-      <div class="fact"><b>$0</b>to start. Free tier, no card.</div>
+      <div class="fact"><b>1M+</b>Shopify stores were auto-onboarded into ChatGPT shopping. No equivalent onboarding reached WooCommerce. <span style="opacity:.75">Sources below.</span></div>
+      <div class="fact"><b>0</b>credentials, signups or store changes for the free preflight. It reads public surfaces only.</div>
+      <div class="fact"><b>13</b>checks on your live storefront, in about a minute. Free, no signup, no store changes.</div>
     </div>
   </div>
 </header>
 
 <div class="wrap">
+
+
+<section class="preview-block">
+  <h2 class="preview-h">What comes back</h2>
+  <p class="preview-sub">An actual result from a live WooCommerce store. Thirteen checks, each one a thing an AI shopper either can or cannot do.</p>
+  <div class="scanprev">
+    <div class="scanprev-head"><b>36<span>/100</span></b><span class="scanprev-grade">needs work</span></div>
+    <ul class="scanprev-list">
+      <li class="ok">Store responds over HTTPS</li>
+      <li class="ok">WooCommerce Store API responds</li>
+      <li class="ok">Agent discovery file published</li>
+      <li class="ok">AI crawlers not blocked in robots.txt</li>
+      <li class="no">Published products exist <em>0 sampled</em></li>
+      <li class="no">Products have prices <em>0/0</em></li>
+      <li class="no">Stock status exposed <em>0/0</em></li>
+      <li class="no">Product structured data (JSON-LD) present <em>no schema.org Product markup found</em></li>
+    </ul>
+    <p class="scanprev-foot">This store is reachable and its catalogue endpoint answers — but nothing an agent needs to quote a price, check stock, or hand the product to a shopper is exposed. That is the gap the fix closes.</p>
+  </div>
+</section>
 
 <!-- ============ WHO ============ -->
 <section style="border-top:0">
@@ -324,7 +386,7 @@ footer .legal a:hover{color:var(--ink)}
     <div class="txt">
       <div class="step-no">STEP 1 / 4</div>
       <h3>Connect your own store</h3>
-      <p class="d">Paste your store URL and the WooCommerce API keys you generate in your own admin. The keys are read-only, scoped to your store, revocable by you anytime. We store nothing but the feed.</p>
+      <p class="d">Paste your store URL and the WooCommerce API keys you generate in your own admin. The keys are read-only, scoped to your store, revocable by you anytime. The keys are stored encrypted and used only to read your catalogue.</p>
       <div class="fine">WooCommerce → Settings → Advanced → REST API → Add key<br>Permissions: Read only · That's the whole security surface</div>
     </div>
     <div class="ui">
@@ -361,7 +423,7 @@ footer .legal a:hover{color:var(--ink)}
       <div class="step-no">STEP 2 / 4</div>
       <h3>Your feed goes live — and stays live</h3>
       <p class="d">Every product, price and stock count becomes a live agent-readable feed. It re-syncs from your store automatically — change a price at 2pm, agents see it at 2pm. Nothing to maintain.</p>
-      <div class="fine">Sync: every 15 min · Free tier keeps your top 10 products live<br>Works with variable products, sale prices, categories</div>
+      <div class="fine">Sync: every 15 min · Free tier keeps your top 25 products live<br>Works with variable products, sale prices, categories</div>
     </div>
   </div>
 
@@ -374,7 +436,7 @@ footer .legal a:hover{color:var(--ink)}
       <div class="fine">Cart links: HMAC-signed · single-use · max 60 min<br>No card data ever passes through AgentReady</div>
     </div>
     <div class="ui" style="background:var(--dark);border-color:#2A2733">
-      <div class="bar" style="background:#1D1A24;border-color:#2A2733"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t" style="color:#6F6A80">shopping agent · reading northwindwool.com</span></div>
+      <div class="bar" style="background:#1D1A24;border-color:#2A2733"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t" style="color:#868294">shopping agent · reading northwindwool.com</span></div>
       <div style="padding:20px">
         <div class="feed">
           <span class="k">"black wool running shoes under $130"</span><br><br>
@@ -412,26 +474,37 @@ footer .legal a:hover{color:var(--ink)}
 <!-- ============ FREE SCAN (interactive) ============ -->
 <section id="scan">
   <div class="sec-head">
-    <div class="kicker"><span class="no">03</span>The free scan</div>
-    <h2>Run step one on your store. Right here.</h2>
-    <p class="lede">You just saw the whole product — this is it, live. Read-only, no signup, forever free. We fetch your public pages only.</p>
+    <div class="kicker"><span class="no">03</span>Store Preflight</div>
+    <h2>Run the free, passive first step.</h2>
+    <p class="lede">It reports declared coverage, individual finite checks, and unknowns. Discovery is never presented as protocol conformance.</p>
   </div>
   <form data-scan-form style="display:flex;gap:10px;max-width:560px;flex-wrap:wrap">
     <input data-scan-input type="url" required placeholder="https://yourstore.com"
       style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:6px;padding:13px 14px;font-size:15px;font-family:var(--sans);background:#fff">
-    <button class="btn btn-acc" type="submit" id="scan-btn">Run the scan</button>
+    <button class="btn btn-acc" type="submit" id="scan-btn">Run a free store preflight</button>
   </form>
   <div id="scan-out" hidden style="margin-top:28px"></div>
+</section>
+
+<section id="release-gate">
+  <div class="sec-head"><div class="kicker"><span class="no">04</span>Release Timeline</div><h2>Make the release decision explicit.</h2><p class="lede">The paid Release Gate is an ownership-authorized, version-pinned acceptance run. It is not a certification, visibility guarantee, or checkout test.</p></div>
+  <div class="timeline">
+    <div class="event"><b>01 / PRE-FLIGHT</b><h3>Public facts</h3><p>Woo, robots, product JSON-LD and declared protocol surfaces — including what could not be measured.</p></div>
+    <div class="event"><b>02 / OWNERSHIP</b><h3>Prove control</h3><p>Your WordPress plugin signs a 15-minute challenge. Keys never enter evidence or result packets.</p></div>
+    <div class="event"><b>03 / RELEASE GATE</b><h3>Verify safely</h3><p>Declared MCP, UCP and ACP vectors run against pinned bundles. No payment or order is submitted.</p></div>
+    <div class="event"><b>04 / DECISION</b><h3>Compare evidence</h3><p>See ACCEPTED, REJECTED, or an honest non-billable state alongside the last accepted baseline.</p></div>
+  </div>
+  <p class="lede" style="margin-top:24px"><strong>Verify this release — $0.50</strong> <span style="color:var(--ink3)">Beta price. Not available for purchase yet; settlement remains disabled.</span></p>
 </section>
 
 <!-- ============ NUMBERS ============ -->
 <section style="padding:0">
   <div class="band">
     <div class="in2">
-      <div class="kicker" style="color:var(--acc)"><span class="no" style="color:#6F6A80">04</span>Why now</div>
+      <div class="kicker"><span class="no" style="color:#868294">04</span>Why now</div>
       <div class="grid" style="margin-top:24px">
-        <div><div class="v">1M+</div><div class="l">Shopify stores were auto-onboarded into ChatGPT shopping. WooCommerce got nothing. This is the catch-up.</div></div>
-        <div><div class="v">+38<span>%</span></div><div class="l">higher purchase completion from AI-referred visitors vs traditional search (Adobe Analytics)</div></div>
+        <div><div class="v">1M+</div><div class="l">Shopify stores were auto-onboarded into ChatGPT shopping. No equivalent onboarding reached WooCommerce stores. This is the catch-up.</div></div>
+        <div><div class="v">+38<span>%</span></div><div class="l">higher conversion from AI-referred visits vs non-AI traffic (Adobe Analytics, July 2026)</div></div>
         <div><div class="v">+138<span>%</span></div><div class="l">AI traffic to US retail sites, May 2026 YoY — the highest share Adobe has ever recorded</div></div>
       </div>
       <div class="src">sources: <a href="https://docs.stripe.com/agentic-commerce/acp" target="_blank" rel="noopener">Stripe ACP</a> · <a href="https://business.adobe.com/blog/generative-ai-powered-shopping-rises-with-traffic-to-retail-sites" target="_blank" rel="noopener">Adobe Analytics</a> · <a href="https://www.reuters.com/business/media-telecom/ai-referred-us-shoppers-browse-longer-spend-more-per-visit-data-shows-2026-06-15" target="_blank" rel="noopener">Reuters, Jun 2026</a></div>
@@ -444,35 +517,36 @@ footer .legal a:hover{color:var(--ink)}
   <div class="sec-head">
     <div class="kicker"><span class="no">05</span>Pricing</div>
     <h2>Answers once, agents yearly.</h2>
-    <p class="lede">Priced like a WooCommerce plugin, because that's what you'll compare it to: WebToffee charges $89/yr for a feed, Yoast $99/yr for SEO — both forever, every year. Pro is $99 once for the feed, the agent endpoint, the checkout handoff and the analytics. No renewal.</p>
+    <p class="lede" style="color:var(--ink3);font-size:14px;margin-bottom:8px">These plans cover the feed, discovery and cart handoff. The Release Gate is a separate, ownership-authorized run: no plan on this page grants access to it, and its settlement is disabled.</p>
+    <p class="lede">Priced like a WooCommerce plugin, because that's what you'll compare it to: WebToffee lists $89/yr for a feed and Yoast $99/yr for SEO <span style="color:var(--ink3)">(their public list prices, checked 2026-09-07)</span> — both every year. Pro is $49 once for the feed, the agent endpoint, the checkout handoff and the analytics. No renewal.</p>
   </div>
   <div class="plans">
     <div class="plan">
       <div class="nm">Free</div>
       <div class="pr">$0<span> forever</span></div>
       <div class="for">See if agents can read you at all.</div>
-      <ul><li>Agent scan, free forever</li><li>Live feed, your top 10 products</li><li>Discovery file + endpoint</li></ul>
+      <ul><li>Agent scan, free forever</li><li>Live feed, your top 25 products</li><li>Discovery file + endpoint</li></ul>
       <a href="/signup" class="btn btn-line">Start free</a>
     </div>
     <div class="plan">
-      <div class="nm">Deep report</div>
+      <div class="nm">Commerce Readiness Packet</div>
       <div class="pr">$9<span> once</span></div>
-      <div class="for">The full truth, one report, no subscription.</div>
-      <ul><li>Every gap your free scan found, prioritized by impact</li><li>Emailed automatically once you're logged in and have a scan on file</li></ul>
-      <a href="/signup" class="btn btn-line" data-buy="report">Sign up to buy the report</a>
+      <div class="for">A concise, store-specific fix packet. No subscription.</div>
+      <ul><li>Every observed readiness gap, ordered by impact</li><li>Evidence from your latest scan, with concrete next steps</li><li>Optional AI-assisted copy drafts when available — review before publishing</li><li>Saved in your account and emailed after a scan</li></ul>
+      <a href="/signup" class="btn btn-line" data-buy="report">Get the $9 packet</a>
     </div>
     <div class="plan rec">
       <div class="rec-tag">RECOMMENDED</div>
       <div class="nm">Pro</div>
-      <div class="pr">$99<span> once</span></div>
+      <div class="pr">$49<span> once</span></div>
       <div class="for">One payment. Unlocks your full catalog — no renewal, ever.</div>
-      <ul><li>Full catalog exposed to agents — no top-10 cap</li><li>Signed cart handoff on every product</li><li>Weekly email: how many agents visited</li></ul>
+      <ul><li>Full catalog exposed to agents — no top-25 cap</li><li>Signed cart handoff on every product</li><li>Weekly email: how many agents visited</li></ul>
       <a href="/signup" class="btn btn-acc" data-buy="pro">Sign up to unlock Pro</a>
     </div>
     <div class="plan">
       <div class="nm">Agency</div>
-      <div class="pr">$199<span>/year</span></div>
-      <div class="for">25 client stores. $8 per store per year.</div>
+      <div class="pr">$99<span>/year</span></div>
+      <div class="for">25 client stores. Under $4 per store per year.</div>
       <ul><li>25 stores, one license</li><li>Priority support</li></ul>
       <a href="https://pay.paddle.com/checkout/pri_01m0yghkn396hfkv3r9x5rnst0" class="btn btn-line" data-buy="agency">Talk to us</a>
     </div>
@@ -487,9 +561,10 @@ footer .legal a:hover{color:var(--ink)}
   </div>
   <div class="faq">
     <details open><summary>Is it safe to hand over API keys?</summary><p>You issue a read-only REST API key inside your own WordPress admin, scoped to your store, and you can revoke it in one click whenever you want. AgentReady can read your catalog; it cannot write, refund, or touch customer data. No card information ever passes through the service — every checkout completes on your own site.</p></details>
-    <details><summary>Which AI agents does this actually reach?</summary><p>Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. As standards like ACP and WebMCP stabilize, your feed format updates automatically — that's the point of building on the spec, not a hack.</p></details>
+    <details><summary>Can an agent get a real total, with tax and shipping?</summary><p>Yes. An agent can open an ACP checkout session against your store and get the landed total — your own tax rules, your own shipping rates, the same numbers your checkout would show — because AgentReady asks your store rather than estimating. What it does not do is take the money or hold the stock: the session says so plainly and hands the buyer a link to finish on your site, through the payment methods you already accept.</p></details>
+    <details><summary>Which AI agents does this actually reach?</summary><p>Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. Your store's MCP server already speaks the Agentic Commerce Protocol (ACP 2026-04-17) for quoting, under the specification's own tool names, so an agent that has read the spec can price a basket against your store without being taught anything.</p></details>
     <details><summary>How is this different from an SEO plugin?</summary><p>SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock-queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out.</p></details>
-    <details><summary>What if I stop paying?</summary><p>The free tier keeps your feed, discovery file and cart handoff live forever — you just go back to a top-10-product limit instead of your full catalog. You don't lose visibility.</p></details>
+    <details><summary>What if I stop paying?</summary><p>The free tier keeps your feed, discovery file and cart handoff live forever — you just go back to a top-25-product limit instead of your full catalog. You don't lose visibility.</p></details>
   </div>
 </section>
 </div>
@@ -530,14 +605,12 @@ footer .legal a:hover{color:var(--ink)}
       </div>
       <div class="col">
         <div class="h">Resources</div>
-        <a href="#">Docs</a>
-        <a href="#">Status</a>
         <a href="/.well-known/agenticweb.md">Agent discovery file</a>
       </div>
     </div>
     <div class="legal">
       <span>© 2026 AgentReady — a UtilityHouse product</span>
-      <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/refund-policy">Refund Policy</a></span>
+      <span><a href="/support">Support</a> · <a href="/security">Security</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/refund-policy">Refund Policy</a></span>
     </div>
   </div>
 </footer>
@@ -547,6 +620,11 @@ footer .legal a:hover{color:var(--ink)}
   var out=document.getElementById("scan-out");
   function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
   function render(d){
+    if(d.kind==="preflight"){
+      var preRows=(d.checks||[]).map(function(c){var state=esc(c.state||"UNMEASURED");return '<tr><td><span class="'+(state==="PASS"?"pass":"fail")+'">'+state+'</span></td><td>'+esc(c.id)+'</td><td style="color:var(--ink2)">'+esc(c.reasonCode||"measured")+'</td></tr>';}).join("");
+      var unknowns=(d.unknowns||[]).map(function(x){return "<li>"+esc(x)+"</li>";}).join("");
+      return '<div class="scan-score" style="font-size:34px">'+esc(d.state||"UNMEASURED")+'</div><p style="color:var(--ink2)">Passive result · '+esc(d.sample_size||0)+' product pages sampled · '+esc(d.catalogue_total==null?"total unavailable":d.catalogue_total+" catalogue total")+'</p><table style="margin-top:18px"><tr><th>State</th><th>Check</th><th>Reason</th></tr>'+preRows+'</table>'+(unknowns?'<div class="recs"><strong>Not measured</strong><ul>'+unknowns+'</ul></div>':"");
+    }
     var rows=(d.checks||[]).map(function(c){return '<tr><td style="width:26px"><span class="'+(c.ok?"pass":"fail")+'">'+(c.ok?"✓":"✗")+'</span></td><td>'+esc(c.label)+'</td><td style="color:var(--ink2)">'+esc(c.detail)+"</td></tr>";}).join("");
     var recs=(d.recommendations||[]).map(function(r){return "<li>"+esc(r)+"</li>";}).join("");
     return '<div class="scan-score">'+d.score+"<span>/100</span></div>"+
@@ -554,7 +632,7 @@ footer .legal a:hover{color:var(--ink)}
       '<table style="margin-top:18px"><tr><th></th><th>Check</th><th>Detail</th></tr>'+rows+"</table>"+
       (recs?'<div class="recs"><strong>What to do next</strong><ul>'+recs+"</ul>"+
         '<div class="rec-cta"><a class="btn btn-acc" href="/signup">Become buyable — create a free account</a>'+
-        '<span style="color:var(--ink3);font-size:13.5px">Free forever · top 10 products live as offers</span></div></div>':"");
+        '<span style="color:var(--ink3);font-size:13.5px">Free forever · top 25 products live as offers</span></div></div>':"");
   }
   document.querySelectorAll("[data-scan-form]").forEach(function(form){
    form.addEventListener("submit",async function(e){
@@ -563,10 +641,10 @@ footer .legal a:hover{color:var(--ink)}
     var original=btn.textContent;
     btn.disabled=true;btn.textContent="Scanning…";out.hidden=true;
     try{
-      var res=await fetch("/api/scan",{method:"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({store_url:input.value})});
+      var res=await fetch("/api/v2/preflight",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({store_origin:input.value})});
       var data=await res.json();
-      if(!res.ok){out.innerHTML='<p class="scan-err">'+esc(data.error||"Scan failed — try again.")+"</p>";}
+      if(!res.ok){out.innerHTML='<p class="scan-err">'+esc(data.code||"Preflight failed — try again.")+"</p>";}
       else{out.innerHTML=render(data);}
     }catch(err){out.innerHTML='<p class="scan-err">Scan failed — check the URL and try again.</p>';}
     btn.disabled=false;btn.textContent=original;
@@ -575,6 +653,5 @@ footer .legal a:hover{color:var(--ink)}
   });
 })();
 </script>
-<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "bb0fee24a7f6439faf5d7ed4e27a50f8"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

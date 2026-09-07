@@ -3,11 +3,28 @@
 // credentials required; authenticated Woo checks run only when keys are given.
 
 export interface ScanCheck { id: string; label: string; ok: boolean; detail: string; weight: number; }
+
+/** `UNREADABLE` is an abstention, not a verdict about the store.
+ *
+ * The scan used to have no way to say "I could not read it". A shop that was
+ * down, DNS-less or behind a block failed every check for the same reason —
+ * nothing answered — and came back as roughly 18/100, grade `poor`, which
+ * reads as a finding about the merchant's store. It was shown that way on the
+ * result page, sent in the email, and returned from the public MCP tool, while
+ * this product's own OpenAPI says abstentions "are not failures of the store,
+ * and a caller must not present them as findings". */
+export type ScanState = "SCORED" | "UNREADABLE";
+export interface ScanAbstention { reason: string; detail: string }
 export interface SampleProduct { title: string; description: string; hasImage: boolean }
 export interface ScanResult {
   storeUrl: string;
-  score: number;
-  grade: "good" | "fair" | "poor";
+  state: ScanState;
+  /** Null when the scan abstained. Deliberately nullable rather than 0, so
+   * that every consumer has to decide what to render instead of a number. */
+  score: number | null;
+  grade: "good" | "fair" | "poor" | null;
+  /** Present only when `state` is `UNREADABLE`. */
+  unreadable: ScanAbstention | null;
   checks: ScanCheck[];
   productCount: number;
   scannedAt: number;
@@ -51,15 +68,30 @@ export async function scanStore(
   }
 
   const home = await fetchText(storeUrl, fetchImpl);
-  checks.push(check("reachable", "Store responds to requests", home.ok || home.status > 0,
-    home.ok ? `HTTP ${home.status}` : home.status ? `HTTP ${home.status}` : "unreachable"));
+  // `home.status > 0` used to be enough, so a storefront answering 500, 503 or
+  // Cloudflare's 530 counted as reachable — a shop that was entirely down got
+  // told it responds, and its score was inflated by a point it had not earned.
+  // Only a response an agent could actually read counts.
+  checks.push(check("reachable", "Store responds to requests", home.ok,
+    home.status ? `HTTP ${home.status}` : "unreachable"));
   checks.push(check("site_title", "Site metadata readable", /<title>[^<]{2,}<\/title>/i.test(home.text),
     /<title>([^<]{2,})<\/title>/i.exec(home.text)?.[1]?.slice(0, 60) ?? "no <title> found"));
 
-  const isWoo = /woocommerce/i.test(home.text);
-  checks.push(check("woo_detected", "WooCommerce detected", isWoo, isWoo ? "woocommerce markers found" : "no woocommerce marker on homepage"));
-
   const storeApi = await fetchText(`${storeUrl}/wp-json/wc/store/v1/products?per_page=20`, fetchImpl);
+
+  // Detection reads the homepage markup first, but that is exactly what a bot
+  // challenge replaces: a real WooCommerce shop behind one answered 202 with
+  // no <title>, so the markers were missing and the scan reported "not
+  // WooCommerce" while its own next check found the WooCommerce Store API
+  // answering on the same host. A responding Store API IS WooCommerce, so it
+  // settles the question the markup could not.
+  const markerFound = /woocommerce/i.test(home.text);
+  const isWoo = markerFound || storeApi.ok;
+  checks.push(check("woo_detected", "WooCommerce detected", isWoo,
+    markerFound ? "woocommerce markers found"
+      : storeApi.ok ? "WooCommerce Store API responds (homepage markup unreadable)"
+        : "no woocommerce marker on homepage"));
+
   let products: Array<Record<string, unknown>> = [];
   let totalCount = 0;
   if (storeApi.ok) {
@@ -155,21 +187,36 @@ export async function scanStore(
     }
   }
 
+  // Nothing answered: not one byte of the store was read, so there is no
+  // evidence to score. Everything below this line would otherwise be a
+  // measurement of our own failed requests.
+  const unreadable: ScanAbstention | null = (!home.ok && !storeApi.ok)
+    ? (home.status === 0 && storeApi.status === 0
+        ? { reason: "TARGET_UNREACHABLE", detail: `nothing answered at ${storeUrl} within ${FETCH_TIMEOUT_MS / 1000} seconds` }
+        : { reason: "TARGET_UNREADABLE", detail: `the homepage answered HTTP ${home.status || "nothing"} and the Store API HTTP ${storeApi.status || "nothing"}` })
+    : null;
+
   const totalWeight = checks.reduce((sum, c) => sum + c.weight, 0);
   const passedWeight = checks.filter(c => c.ok).reduce((sum, c) => sum + c.weight, 0);
-  const score = Math.round((passedWeight / totalWeight) * 100);
-  const grade = score >= 80 ? "good" : score >= 50 ? "fair" : "poor";
+  const score = unreadable ? null : Math.round((passedWeight / totalWeight) * 100);
+  const grade = score === null ? null : score >= 80 ? "good" : score >= 50 ? "fair" : "poor";
 
   if (apiOk) recommendations.push("Your catalog is readable. Connect an AgentReady feed to become buyable: signed cart handoff + agent analytics.");
 
   return {
     storeUrl,
+    state: unreadable ? "UNREADABLE" : "SCORED",
     score,
     grade,
+    unreadable,
+    // The checks are kept even when abstaining: they are the record of what
+    // was attempted, and the page renders them as attempts, not as findings.
     checks,
     productCount: totalCount || published.length,
     scannedAt: Date.now(),
-    recommendations,
+    // Advice derived from checks that only failed because nothing answered is
+    // advice about our own timeouts. An abstention carries none.
+    recommendations: unreadable ? [] : recommendations,
     sampleProducts,
   };
 }

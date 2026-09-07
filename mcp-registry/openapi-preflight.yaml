@@ -1,0 +1,299 @@
+openapi: 3.1.0
+
+# The public preflight, as the deployed service actually behaves.
+#
+# Written from the route in src/app.ts, the contract in src/releaseGate/
+# schemas.ts, the types in src/releaseGate/types.ts, and one live call to
+# production on 2026-09-07 whose response is the `abstained` example below.
+#
+# Two things here are unusual and deliberate:
+#
+#   * a 200 is not necessarily an answer. The preflight returns 200 with
+#     `state: BLOCKED` when it reached the target and could not read it. Any
+#     consumer that treats 200 as success will report confident nonsense.
+#   * the rate limits are documented as they are, not as a plan would like
+#     them: three calls per target origin per day and ten per calling IP per
+#     day. A marketplace quota larger than that is a promise this endpoint
+#     breaks.
+
+info:
+  title: AgentReady Woo — WooCommerce Agent Readiness Preflight
+  version: 1.1.0
+  summary: Is a public WooCommerce storefront readable by shopping agents?
+  description: |
+    Send a public storefront origin. Get structured checks back — and an
+    explicit "could not tell" when the store cannot be read.
+
+    Credential-free and read-only. It reads public pages and the public
+    WooCommerce Store API. It changes nothing, stores no customer data, and
+    returns no product text.
+
+    **Not** a certification, a visibility guarantee, or a checkout test.
+    Diagnostic accuracy against real merchant stores is unmeasured and is
+    claimed nowhere.
+  contact:
+    name: UtilityHouse
+    url: https://app.utilityhouse.xyz
+  termsOfService: https://app.utilityhouse.xyz/terms
+
+servers:
+  - url: https://app.utilityhouse.xyz
+    description: production
+
+tags:
+  - name: preflight
+    description: Free, passive, public-surface readiness checks.
+
+paths:
+  /api/v2/preflight:
+    post:
+      tags: [preflight]
+      operationId: runPreflight
+      summary: Run a passive readiness preflight against a public storefront
+      description: |
+        No authentication. Rate limited to **3 calls per target origin per day**
+        and **10 calls per calling IP per day**; exceeding either returns `429`
+        with `TARGET_RATE_LIMITED`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreflightRequest'
+            examples:
+              minimal:
+                summary: An origin and nothing else
+                value:
+                  store_origin: https://shop.example.com
+              selectedFamilies:
+                summary: Only the surfaces you care about
+                value:
+                  store_origin: https://shop.example.com
+                  requested_families: [woo, robots, jsonld]
+      responses:
+        '200':
+          description: |
+            The preflight ran. **This does not mean it could read the store** —
+            check `state` before using `checks`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreflightResult'
+              examples:
+                answered:
+                  summary: It read the store
+                  value:
+                    kind: preflight
+                    state: PARTIAL
+                    store_origin: https://shop.example.com
+                    requested_families: [woo, robots, jsonld]
+                    sample_seed: "a91c"
+                    sample_size: 12
+                    catalogue_total: 148
+                    checks:
+                      - id: woo_store_api
+                        family: woo
+                        state: PASS
+                        evidence: { safe: true }
+                      - id: robots_ai_crawlers
+                        family: robots
+                        state: FAIL
+                        reasonCode: ROBOTS_BLOCKED
+                        evidence: { safe: true }
+                    protocol_bundles: []
+                    observed_at: "2026-09-07T06:20:31.073Z"
+                    unknowns: []
+                abstained:
+                  summary: It reached the store and could not read it — a real production response, captured 2026-09-07
+                  value:
+                    kind: preflight
+                    state: BLOCKED
+                    store_origin: https://woocommerce.com
+                    requested_families: [woo, robots, jsonld]
+                    sample_seed: none
+                    sample_size: 0
+                    catalogue_total: null
+                    checks:
+                      - id: target
+                        family: woo
+                        state: BLOCKED
+                        reasonCode: TARGET_PRIVATE
+                        evidence: { safe: false }
+                    protocol_bundles: []
+                    observed_at: "2026-09-07T06:20:31.073Z"
+                    unknowns: [TARGET_PRIVATE]
+        '400':
+          description: The request was refused before any target was contacted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unknownProperty:
+                  value: { code: UNKNOWN_PROPERTY }
+                invalidBody:
+                  value: { code: INVALID_BODY }
+                invalidFamilies:
+                  value: { code: INVALID_REQUESTED_FAMILIES }
+        '429':
+          description: |
+            Daily limit reached — for this target origin (3/day) or for the
+            calling IP (10/day). Retry tomorrow; do not rotate addresses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: { code: TARGET_RATE_LIMITED }
+        '503':
+          description: Persistence unavailable. The preflight was not run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: { code: INFRA_PERSISTENCE_FAILED }
+
+components:
+  schemas:
+    Family:
+      type: string
+      enum: [woo, robots, jsonld, mcp, ucp, acp]
+
+    PreflightRequest:
+      type: object
+      additionalProperties: false
+      required: [store_origin]
+      properties:
+        store_origin:
+          type: string
+          minLength: 8
+          maxLength: 2048
+          description: Public HTTPS origin of the storefront.
+          examples: [https://shop.example.com]
+        requested_families:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items: { $ref: '#/components/schemas/Family' }
+          description: Omit for the server's default set.
+
+    PreflightResult:
+      type: object
+      required:
+        [kind, state, store_origin, requested_families, sample_seed,
+         sample_size, catalogue_total, checks, protocol_bundles,
+         observed_at, unknowns]
+      properties:
+        kind: { const: preflight }
+        state:
+          type: string
+          enum: [ACCEPTED, REJECTED, PARTIAL, BLOCKED, UNMEASURED]
+          description: |
+            `BLOCKED` and `UNMEASURED` mean the preflight could not tell. They
+            are abstentions, not failures of the store, and a caller must not
+            present them as findings.
+        store_origin: { type: string }
+        requested_families:
+          type: array
+          items: { $ref: '#/components/schemas/Family' }
+        sample_seed:
+          type: string
+          description: '`none` when nothing was sampled.'
+        sample_size: { type: integer, minimum: 0 }
+        catalogue_total:
+          type: [integer, 'null']
+          description: Null when the catalogue size could not be established.
+        checks:
+          type: array
+          items: { $ref: '#/components/schemas/Check' }
+        protocol_bundles:
+          type: array
+          items: { $ref: '#/components/schemas/ProtocolBundle' }
+        observed_at: { type: string, format: date-time }
+        unknowns:
+          type: array
+          items: { $ref: '#/components/schemas/ReasonCode' }
+          description: Why the preflight could not decide something.
+
+    Check:
+      type: object
+      required: [id, family, state, evidence]
+      properties:
+        id: { type: string }
+        family: { $ref: '#/components/schemas/Family' }
+        state:
+          type: string
+          enum: [PASS, FAIL, BLOCKED, NOT_APPLICABLE, UNMEASURED]
+        reasonCode: { $ref: '#/components/schemas/ReasonCode' }
+        evidence:
+          type: object
+          description: |
+            Aggregate only. No customer, order, payment, URL, note body or
+            product content appears here.
+          additionalProperties:
+            type: [string, number, boolean, 'null']
+
+    ProtocolBundle:
+      type: object
+      required:
+        [family, release, sourceUrl, sourceSha256, vectorSha256, builtAt,
+         supportedVectors, unsupportedVectors]
+      properties:
+        family: { type: string, enum: [mcp, ucp, acp] }
+        release: { type: string }
+        sourceUrl: { type: string, format: uri }
+        sourceSha256: { type: string }
+        vectorSha256: { type: string }
+        builtAt: { type: string, format: date-time }
+        supportedVectors: { type: array, items: { type: string } }
+        unsupportedVectors: { type: array, items: { type: string } }
+
+    ReasonCode:
+      type: string
+      description: The finite vocabulary. A caller may branch on these.
+      enum:
+        - TARGET_INVALID
+        - TARGET_PRIVATE
+        - TARGET_REDIRECT_UNSAFE
+        - TARGET_DNS_REBIND
+        - TARGET_TIMEOUT
+        - TARGET_BYTES_EXCEEDED
+        - TARGET_RATE_LIMITED
+        - ROBOTS_BLOCKED
+        - WOO_API_UNAVAILABLE
+        - WOO_SAMPLE_EMPTY
+        - JSONLD_PRODUCT_MISSING
+        - JSONLD_OFFER_MISSING
+        - DISCOVERY_UNDECLARED
+        - PROTOCOL_VERSION_UNSUPPORTED
+        - PROTOCOL_SCHEMA_INVALID
+        - MCP_INITIALIZE_FAILED
+        - MCP_TOOLS_LIST_FAILED
+        - MCP_TOOL_ANNOTATION_UNSAFE
+        - MCP_TOOL_CALL_FAILED
+        - UCP_PROFILE_INVALID
+        - ACP_PROFILE_INVALID
+        - CROSS_SURFACE_CONFLICT
+        - OWNERSHIP_REQUIRED
+        - OWNERSHIP_EXPIRED
+        - ACTIVE_FLOW_FORBIDDEN
+        - EVIDENCE_INVALID
+        - INFRA_PERSISTENCE_FAILED
+        - UNMEASURED_SOURCE
+        - CONNECTION_UNVERIFIABLE
+        - INVALID_MIME
+        - INVALID_JSON
+        - PAGINATION_DRIFT
+        - CANCELED_BY_CALLER
+
+    Error:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_BODY
+            - UNKNOWN_PROPERTY
+            - INVALID_REQUESTED_FAMILIES
+            - TARGET_RATE_LIMITED
+            - INFRA_PERSISTENCE_FAILED

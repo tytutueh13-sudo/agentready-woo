@@ -1,0 +1,10 @@
+{
+  "actorSpecification": 1,
+  "name": "woocommerce-release-preflight-batch",
+  "title": "WooCommerce Release Preflight — batch triage for agencies",
+  "description": "Triage a bounded list of public WooCommerce storefronts before you write a remediation proposal. One structured row per origin, with ready, needs-work and could-not-tell kept apart. Reads public surfaces only: no credentials, no store changes, no ownership required.",
+  "version": "0.1",
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "storages": { "dataset": "./dataset_schema.json" }
+}

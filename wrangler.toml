@@ -26,13 +26,46 @@ directory = "marketing/landing"
 REVENUE_SYSTEM_ENABLED = "true"
 PUBLIC_BASE_URL = "https://app.utilityhouse.xyz"
 
+# x402 per-call payment, on TESTNET.
+#
+# All four are public by nature — a receiving address is meant to be known, and
+# the rest are constants — so they belong here rather than in secrets.
+#
+# eip155:84532 is Base SEPOLIA. Verified against the facilitator's own
+# /supported, which lists exactly {x402Version:2, scheme:"upto",
+# network:"eip155:84532"} — the combination X402PaymentProvider sends. Moving
+# this to eip155:8453 is the switch to real money and must not be done casually.
+X402_NETWORK = "eip155:84532"
+X402_PAY_TO = "0xFBb1FFf3b0eb8D8d03d97Cf1309b6D401262347b"
+# Circle's USDC on Base Sepolia, from Circle's own contract-address list.
+X402_ASSET = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+X402_FACILITATOR_URL = "https://x402.org/facilitator"
+#
+# REAL_PAYMENTS_ENABLED is deliberately ABSENT, which the guard reads as false
+# and which blocks settlement outright ("new financial exposure is disabled").
+# Verification still runs, so the whole path can be exercised without anything
+# being able to move. On testnet the funds are worthless anyway; the flag is
+# what keeps that true if the network is ever changed above.
+
 [triggers]
-crons = ["*/5 * * * *"]
+# Two triggers, dispatched in src/index.ts by which one fired. The frequent
+# one recovers stuck financial operations; the daily one pings IndexNow. A
+# phase that picked its own moment out of the frequent tick lost the whole
+# day's work whenever an invocation started late.
+crons = ["*/5 * * * *", "0 3 * * *"]
 
 [[d1_databases]]
 binding = "FINANCIAL_DB"
 database_name = "money-ai-prod-d1"
-database_id = "19794cad-6966-44c9-a098-00904b919829"
+database_id = "00000000-0000-0000-0000-000000000000"  # placeholder: this mirror does not deploy
+
+[ai]
+binding = "AI"
+
+[[workflows]]
+name = "agentready-release-gate"
+binding = "RELEASE_GATE_WORKFLOW"
+class_name = "ReleaseGateAcceptanceWorkflow"
 
 # Secrets (set with `wrangler secret put <name>`, never in this file):
 #   APP_ENCRYPTION_SECRET  — encrypts stored Woo consumer secrets at rest
@@ -54,7 +87,10 @@ database_id = "19794cad-6966-44c9-a098-00904b919829"
 #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — enables "Continue with Google"
 #     on /signup and /login; without these, only email/password auth shows —
 #     see requireAdmin()-style fail-closed googleOn check in src/app.ts
-#   OPENAI_API_KEY — adds an "AI content review" section (GPT-5 Nano) to the
-#     deep report email: judges the store's own product copy and suggests
-#     rewrites. Without it the deep report still sends in full, just without
-#     that section — see judgeReadiness() in src/core/aiJudge.ts
+#   Workers AI is bound as AI above (not a plaintext API key). It may add
+#     limited AI-assisted copy drafts to the Commerce Readiness Packet after
+#     strict input filtering; deterministic packet delivery never depends on it.
+#   RELEASE_GATE_OWNERSHIP_SECRET — derives per-store ownership challenge HMACs.
+#   RELEASE_EVIDENCE_CURRENT_KEY — root used to derive per-store plugin HMACs
+#   RELEASE_EVIDENCE_PREVIOUS_KEY / _EXPIRES_AT — optional rotation grace;
+#     missing, invalid, or expired timestamp fails closed.

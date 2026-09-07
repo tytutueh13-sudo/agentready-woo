@@ -33,7 +33,7 @@ Prompt:
 ### Scene 4 (24-30s) — The numbers + CTA
 Visual: Bold type on dark: "+38% purchase completion from AI referrals" →
 "Set up in 5 minutes" → logo: AgentReady — Be found by AI shoppers. →
-"Free scan · agentready.utilityhouse.xyz"
+"Free scan · app.utilityhouse.xyz"
 Prompt:
 > Minimal motion graphics, dark indigo background, large serif typography animates
 > in: "+38% purchase completion from AI referrals" then "5-minute setup" then

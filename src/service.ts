@@ -4,6 +4,7 @@
 // AgentReady Woo: translates a merchant's own WooCommerce catalog into an
 // agent-readable surface. Reads only the merchant's own REST API (their keys,
 // zero per-call upstream cost) and never stores card data or product copies.
+import { AGENTREADY_PUBLIC_NAME, AGENTREADY_VERSION } from "./productIdentity.ts";
 
 export interface ToolInput {
   [key: string]: unknown;
@@ -235,8 +236,8 @@ export async function verifyCartLink(
 function buildFeed(config: ServiceConfig, offers: ToolOutput[], nowIso: string): ToolOutput {
   return {
     generator: {
-      name: "AgentReady Woo",
-      version: "1.0.0",
+      name: AGENTREADY_PUBLIC_NAME,
+      version: AGENTREADY_VERSION,
       discovery: `${config.publicBaseUrl || config.storeUrl}/.well-known/agenticweb.md`,
       mcp_endpoint: `${config.publicBaseUrl || config.storeUrl}/mcp`,
     },
@@ -326,7 +327,9 @@ time-limited signed cart link.
 ## Discovery
 - This document: GET ${base}/.well-known/agenticweb.md
 - Feed: POST ${base}/api/v1/agentready_woo_agentic_commerce_readiness_toolkit_for_self_h with {"input":{"action":"get_feed"}}
-- MCP endpoint: POST ${base}/mcp {"tool":"agentready_woo_agentic_commerce_readiness_toolkit_for_self_h","input":{...}}
+- MCP server: POST ${base}/mcp — JSON-RPC 2.0 (initialize, tools/list, tools/call, ping). Free: the readiness scan is how a store finds out it is not agent-ready, so nothing is owed for it.
+- The same URL still accepts the older non-protocol shape: {"tool":"agentready_woo_agentic_commerce_readiness_toolkit_for_self_h","input":{...}}
+- Per-store surface: POST ${base}/mcp/{store_id}, described at GET ${base}/mcp/{store_id}/discovery
 
 ## Tools
 - search_products {query, per_page?, page?} — search the live catalog
@@ -334,6 +337,29 @@ time-limited signed cart link.
 - get_feed {} — recent offers with generator metadata
 - create_cart_link {product_id, quantity?} — signed, expiring add-to-cart link (max 1h)
 - verify_cart_link {cart_url} — verify signature/expiry before handoff
+
+## Agentic Commerce Protocol
+The per-store MCP server implements the quote half of ACP 2026-04-17, under the
+specification's own names and its {meta, id, payload} argument shape.
+
+- create_checkout_session — price a basket: line items, the store's own tax, its
+  shipping options, and the landed total in minor currency units. This is the
+  number no catalogue reveals, because tax rules and shipping rates live inside
+  the store.
+- update_checkout_session — add items, set the shipping address, or choose one of
+  the returned fulfillment_options by id. Choosing one moves shipping into the total.
+- get_checkout_session — re-read a session; the store reprices on every read.
+
+Not offered, and said here rather than failing at call time:
+- complete_checkout_session — no payment is taken. Sessions stay at
+  not_ready_for_payment and carry continue_url.
+- cancel_checkout_session — nothing is held, so there is nothing to cancel.
+  quote_id and quote_expires_at are never set: those mean stock is reserved, and
+  WooCommerce reserves stock only through a PHP path with no REST route.
+
+A delivery estimate is passed through as text when the store gives one.
+ACP's earliest_delivery_time / latest_delivery_time stay unset rather than being
+guessed from it — a wrong delivery date is worse than none.
 
 ## Purchase boundary
 No payment credentials flow through this service. Agents should present the

@@ -3,6 +3,7 @@
 // Returns null for unhandled paths so index.ts can fall through to the
 // legacy env-configured endpoints.
 import { AppStore, offerLimitFor, type PlanKey, type StoreRow } from "./core/appStore.ts";
+import { isPublishableClientToken } from "./core/paddleToken.ts";
 import {
   hashPassword, verifyPassword, isValidEmail, newSessionToken, hashToken,
   sessionCookie, clearedSessionCookie, readSessionCookie, SESSION_TTL_MS,
@@ -13,13 +14,26 @@ import {
   signupPage, loginPage, dashboardPage, storeCard, storeFormPage,
   billingPage, scanFormPage, scanResultPage, readForm, escapeHtml,
   forgotPasswordPage, resetPasswordPage, resetLinkExpiredPage, accountPage,
-  adminUsersPage, adminUserDetailPage, proUpgradeCard,
+  adminUsersPage, adminUserDetailPage, proUpgradeCard, releaseGateSetupPage, type CheckoutConfig,
 } from "./web.ts";
-import { handlePaddleWebhook, type PaddleEnv } from "./webhooks.ts";
-import { TOOL_NAME } from "./mcp.ts";
+import { claimPurchases, handlePaddleWebhook, settleOwedReport, type PaddleEnv } from "./webhooks.ts";
+import { TOOL_NAME, TOOL_DESCRIPTION, TOOL_INPUT_SCHEMA } from "./mcp.ts";
+import { handleJsonRpc, isJsonRpc, type McpTool } from "./core/mcpRpc.ts";
+import { AGENTREADY_SERVER_NAME, AGENTREADY_VERSION } from "./productIdentity.ts";
+import {
+  createCheckoutSession, getCheckoutSession, updateCheckoutSession,
+  ACP_API_VERSION, discoveryDocument, type AcpMeta, type QuoteContext,
+} from "./core/acpQuote.ts";
 import { sendEmail, passwordResetEmailHtml } from "./core/email.ts";
+import type { WorkersAiBinding } from "./core/aiJudge.ts";
 import type { RevenueGuard } from "./core/guard.ts";
 import type { ServiceConfig } from "./service.ts";
+import { ContractError, parseAcceptanceRunInput, parsePreflightInput } from "./releaseGate/schemas.ts";
+import { runPreflight } from "./releaseGate/preflight.ts";
+import { deriveOwnershipKey, ReleaseGateStore } from "./releaseGate/store.ts";
+import { canonicalPluginEvidence, validatePluginEvidence } from "./releaseGate/pluginEvidence.ts";
+import { evidenceCoversFamilies } from "./releaseGate/signedEvidence.ts";
+import { createReleaseToken, parseTokenCreate, publicToken, rotateReleaseToken } from "./releaseGate/apiTokens.ts";
 
 export interface AppEnv {
   FINANCIAL_DB?: unknown;
@@ -30,13 +44,25 @@ export interface AppEnv {
   PADDLE_PRICE_REPORT?: string;
   PADDLE_PRICE_PRO?: string;
   PADDLE_PRICE_AGENCY?: string;
+  // Real (Paddle.js) checkout renders only when this is set — see
+  // checkoutConfig() below. Missing it, every paid CTA falls back to a
+  // disabled "Coming soon" button instead of a broken/absent one.
+  PADDLE_CLIENT_TOKEN?: string;
   OPS_TOKEN?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
   ADMIN_PASSWORD?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  OPENAI_API_KEY?: string;
+  AI?: WorkersAiBinding;
+  RELEASE_GATE_OWNERSHIP_SECRET?: string;
+  RELEASE_EVIDENCE_CURRENT_KEY?: string; RELEASE_EVIDENCE_PREVIOUS_KEY?: string; RELEASE_EVIDENCE_PREVIOUS_KEY_EXPIRES_AT?: string;
+  // The server-to-server credential for the Apify batch channel. Held in the
+  // Cloudflare secret store and in Apify's, by Codex. Absent here means the
+  // channel simply does not exist and every caller falls back to the public
+  // limits — which is the correct behaviour, not a degraded one.
+  PREFLIGHT_CHANNEL_TOKEN?: string;
+  RELEASE_GATE_WORKFLOW?: { create(input: { params: { runId: string } }): Promise<unknown> };
 }
 
 const PRODUCT_ID = "early-3426536d88daa242";
@@ -68,6 +94,12 @@ function appDb(env: AppEnv): AppStore | null {
   return new AppStore(db);
 }
 
+function releaseGateJson(status: number, body: unknown): Response { return new Response(status===204?null:JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } }); }
+async function subjectDigest(value: string): Promise<string> { const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return [...new Uint8Array(hash)].map(v => v.toString(16).padStart(2, "0")).join(""); }
+async function hmac(key:string,value:string):Promise<string>{const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(key),{name:"HMAC",hash:"SHA-256"},false,["sign"]);return[...new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,"0")).join("");}
+async function evidenceKey(root:string,storeId:string,keyId:"current"|"previous"):Promise<string>{return hmac(root,`agentready-plugin-evidence:${storeId}:${keyId}`);}
+export function previousEvidenceKeyAllowed(expiresAt:string|undefined,now=Date.now()):boolean{if(!expiresAt)return false;const expiry=Date.parse(expiresAt);return Number.isFinite(expiry)&&expiry>now;}
+
 function originOf(request: Request): string {
   return new URL(request.url).origin;
 }
@@ -85,6 +117,40 @@ function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   try { return new URL(origin).origin === originOf(request); } catch { return false; }
+}
+
+/** 429 with a retry hint. The limits are daily, so the hint is honest. */
+function rateLimited(): Response {
+  const response = releaseGateJson(429, { code: "TARGET_RATE_LIMITED" });
+  const midnight = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(),
+                            new Date().getUTCDate() + 1);
+  response.headers.set("retry-after", String(Math.max(1, Math.ceil((midnight - Date.now()) / 1000))));
+  return response;
+}
+
+/** A short, opaque idempotency component. Never logged, never stored raw. */
+function headerKey(request: Request, name: string): string | null {
+  const value = (request.headers.get(name) ?? "").trim();
+  return /^[A-Za-z0-9_.:-]{6,120}$/.test(value) ? value : null;
+}
+
+/** The one authenticated batch channel. Named, not inferred from a header. */
+const PREFLIGHT_CHANNEL_ID = "apify-batch-preflight";
+
+/** Who is calling, for the purpose of the per-caller limit only.
+ *
+ * A bearer token that matches the configured channel secret identifies the
+ * channel. Everything else — including any User-Agent, any IP, any query
+ * string — is an ordinary public caller. There is deliberately no
+ * allowlist and no unlimited path: the channel still spends a distributed
+ * daily budget that starts at zero. */
+function preflightChannel(request: Request, env: AppEnv): "channel" | "public" {
+  const secret = env.PREFLIGHT_CHANNEL_TOKEN;
+  if (!secret) return "public";
+  const header = request.headers.get("authorization") ?? "";
+  const prefix = "Bearer ";
+  if (!header.startsWith(prefix)) return "public";
+  return constantTimeEqual(header.slice(prefix.length).trim(), secret) ? "channel" : "public";
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -132,12 +198,44 @@ function accountNoticeFromQuery(url: URL): { kind: "ok" | "error"; text: string 
   return { kind, text: text ?? "" };
 }
 
-function paddleLinks(env: AppEnv): { report?: string; pro?: string; agency?: string } {
+function checkoutConfig(env: AppEnv): CheckoutConfig | null {
+  const clientToken = env.PADDLE_CLIENT_TOKEN?.trim();
+  // Rejects a secret API key pasted here by mistake — this value is embedded
+  // in page HTML for every visitor. See src/core/paddleToken.ts.
+  if (!isPublishableClientToken(clientToken)) return null;
   return {
-    report: env.PADDLE_PRICE_REPORT ? `https://pay.paddle.com/checkout/${env.PADDLE_PRICE_REPORT}` : undefined,
-    pro: env.PADDLE_PRICE_PRO ? `https://pay.paddle.com/checkout/${env.PADDLE_PRICE_PRO}` : undefined,
-    agency: env.PADDLE_PRICE_AGENCY ? `https://pay.paddle.com/checkout/${env.PADDLE_PRICE_AGENCY}` : undefined,
+    clientToken,
+    prices: {
+      report: env.PADDLE_PRICE_REPORT?.trim() || undefined,
+      pro: env.PADDLE_PRICE_PRO?.trim() || undefined,
+      agency: env.PADDLE_PRICE_AGENCY?.trim() || undefined,
+    },
   };
+}
+
+/** Deliver any Commerce Readiness Packet already paid for on this store.
+ *
+ * Scans are anonymous and keyed by URL, so a buyer who paid before running a
+ * scan cannot be found from the scan alone — this bridges the two. Failures
+ * are swallowed on purpose: a scan must still return its result to the person
+ * waiting for it even if an unrelated report delivery breaks. The entitlement
+ * stays unfulfilled and the dashboard will retry.
+ */
+async function settleOwedReportsForStoreUrl(
+  app: AppStore, env: AppEnv, storeUrl: string,
+): Promise<void> {
+  try {
+    const userIds = await app.usersWithStoreUrl(storeUrl);
+    for (const userId of userIds) {
+      const owed = await app.oldestUnfulfilledReport(userId);
+      if (!owed) continue;
+      const user = await app.getUser(userId);
+      if (!user) continue;
+      await settleOwedReport(app, env as unknown as PaddleEnv, userId, user.email);
+    }
+  } catch {
+    // Intentionally silent — see the note above.
+  }
 }
 
 async function storeAgentHits(env: AppEnv, storeId: string): Promise<number> {
@@ -147,6 +245,207 @@ async function storeAgentHits(env: AppEnv, storeId: string): Promise<number> {
   try {
     return await financial.countRequests(PRODUCT_ID, "store", storeId, Date.now() - 30 * 86_400_000);
   } catch { return 0; }
+}
+
+/** One store's tool call, plan limits included.
+ *
+ * Both request shapes on /mcp/{store} go through this. The limits are the
+ * paid boundary of the product, so a second code path reaching runTool()
+ * directly would be a way around them rather than a convenience.
+ */
+export async function callStoreTool(
+  store: { plan: PlanKey }, config: ServiceConfig, input: Record<string, unknown>,
+): Promise<{ ok: true; result: Record<string, unknown> } | { ok: false; error: string; status: number }> {
+  const { runTool } = await import("./service.ts");
+  const action = typeof input.action === "string" ? input.action : "";
+
+  if (action === "get_feed" || action === "search_products") {
+    const result = await runTool(input, config);
+    const offers = Array.isArray(result.offers) ? result.offers as Array<Record<string, unknown>> : [];
+    const limited = applyOfferLimit(offers, store.plan);
+    return { ok: true, result: { ...result, offers: limited.offers, truncated: limited.truncated } };
+  }
+  if (action === "get_offer" || action === "create_cart_link") {
+    const limit = offerLimitFor(store.plan);
+    if (limit >= 0) {
+      const productId = Number(input.product_id);
+      const feed = await runTool({ action: "get_feed" }, config);
+      const visibleIds = (Array.isArray(feed.offers) ? feed.offers as Array<{ id?: unknown }> : [])
+        .slice(0, limit).map((o) => Number(o.id));
+      if (!visibleIds.includes(productId)) {
+        return { ok: false, status: 403,
+          error: "this product is outside the free plan's visible catalog — upgrade for unlimited offers" };
+      }
+    }
+  }
+  return { ok: true, result: await runTool(input, config) };
+}
+
+/** The ACP checkout-session tools, in the protocol's own names.
+ *
+ * ACP's MCP binding maps five REST operations onto five tools with a fixed
+ * `{meta, id, payload}` argument shape. Three of them are implemented, and
+ * the other two are deliberately absent rather than present and failing:
+ * `complete_checkout_session` needs a delegated payment credential this
+ * service never handles, and both it and `cancel_checkout_session` presuppose
+ * a reservation nothing here makes. A tool that is not offered is a fact an
+ * agent can plan around; one that is offered and refuses is a dead end.
+ *
+ * The names are the specification's rather than ours on purpose. An agent
+ * that has read ACP can drive this without being taught anything, which is
+ * the entire reason to follow a standard instead of inventing a tool.
+ */
+function acpTools(config: ServiceConfig, baseUrl: string): McpTool[] {
+  const context: QuoteContext = {
+    storeUrl: config.storeUrl,
+    fetchImpl: (url, init) => fetch(url, init),
+    // Handed over as a WooCommerce add-to-cart link, signed and expiring —
+    // the existing hand-off. Only for a single line item, because that is the
+    // only cart WooCommerce can rebuild from a URL.
+    resolveContinueUrl: async (lineItems) => {
+      if (lineItems.length !== 1) return null;
+      const { runTool } = await import("./service.ts");
+      const out = await runTool({
+        action: "create_cart_link",
+        product_id: Number(lineItems[0].item.id),
+        quantity: lineItems[0].item.quantity,
+      }, config);
+      const url = (out as Record<string, unknown>).cart_url;
+      return typeof url === "string" ? url : null;
+    },
+    links: baseUrl ? [{ type: "seller_shop_policies", url: `${baseUrl}/legal/terms` }] : [],
+  };
+
+  const meta = (args: Record<string, unknown>): AcpMeta =>
+    (args.meta ?? {}) as AcpMeta;
+  const payload = (args: Record<string, unknown>): Record<string, unknown> =>
+    (args.payload ?? {}) as Record<string, unknown>;
+  const reply = (out: Awaited<ReturnType<typeof createCheckoutSession>>) =>
+    out.ok
+      ? { ok: true as const, text: JSON.stringify(out.session, null, 2) }
+      : { ok: false as const, text: `${out.code}: ${out.message}` };
+
+  const metaSchema = {
+    type: "object",
+    description: "ACP protocol metadata. api_version is the dated specification version.",
+    properties: {
+      api_version: { type: "string", description: `ACP version, e.g. "${ACP_API_VERSION}"` },
+      idempotency_key: { type: "string" },
+      request_id: { type: "string" },
+    },
+    additionalProperties: true,
+  };
+  const addressSchema = {
+    type: "object",
+    description: "Destination. Tax and shipping are not final until this is set.",
+    properties: {
+      country: { type: "string", description: "ISO 3166-1 alpha-2, e.g. \"US\"" },
+      state: { type: "string" }, city: { type: "string" }, postcode: { type: "string" },
+      address_1: { type: "string" }, address_2: { type: "string" },
+    },
+    additionalProperties: true,
+  };
+  const itemsSchema = {
+    type: "array",
+    minItems: 1,
+    description: "Products and quantities. `id` is the WooCommerce product id from the catalogue tool.",
+    items: {
+      type: "object",
+      properties: { id: { type: "integer", minimum: 1 }, quantity: { type: "integer", minimum: 1 } },
+      required: ["id", "quantity"],
+      additionalProperties: true,
+    },
+  };
+
+  return [{
+    name: "create_checkout_session",
+    description:
+      "Price a basket against this WooCommerce store and return an ACP checkout session: line items, the "
+      + "store's own tax, its available shipping options, and the landed total in minor currency units. "
+      + "Supply a shipping address to get final tax and shipping; without one the total excludes both. "
+      + "This never reserves stock and never takes payment — the session reports status "
+      + "\"not_ready_for_payment\" and carries continue_url, where the buyer completes the purchase on the "
+      + "merchant's own store.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meta: metaSchema,
+        payload: {
+          type: "object",
+          properties: {
+            items: itemsSchema,
+            fulfillment_details: { type: "object", properties: { shipping_address: addressSchema }, additionalProperties: true },
+          },
+          required: ["items"],
+          additionalProperties: true,
+        },
+      },
+      required: ["payload"],
+      additionalProperties: true,
+    },
+    async run(args) { return reply(await createCheckoutSession(context, meta(args), payload(args))); },
+  }, {
+    name: "get_checkout_session",
+    description: "Re-read a checkout session by id. Prices are recomputed by the store on every read, so a "
+      + "quote is current rather than remembered.",
+    inputSchema: {
+      type: "object",
+      properties: { meta: metaSchema, id: { type: "string", description: "Session id from create_checkout_session" } },
+      required: ["id"],
+      additionalProperties: true,
+    },
+    async run(args) { return reply(await getCheckoutSession(context, meta(args), String(args.id ?? ""))); },
+  }, {
+    name: "update_checkout_session",
+    description:
+      "Change a session and get the repriced result: add items, set or change the shipping address, or choose "
+      + "one of the fulfillment_options by its id. Choosing an option is what moves shipping into the total.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meta: metaSchema,
+        id: { type: "string", description: "Session id from create_checkout_session" },
+        payload: {
+          type: "object",
+          properties: {
+            items: itemsSchema,
+            fulfillment_details: { type: "object", properties: { shipping_address: addressSchema }, additionalProperties: true },
+            selected_fulfillment_option_ids: {
+              type: "array",
+              description: "Ids taken from the session's own fulfillment_options — not carrier names.",
+              items: { type: "string" },
+            },
+          },
+          additionalProperties: true,
+        },
+      },
+      required: ["id"],
+      additionalProperties: true,
+    },
+    async run(args) { return reply(await updateCheckoutSession(context, meta(args), String(args.id ?? ""), payload(args))); },
+  }];
+}
+
+/** The store's tool as an MCP client sees it. One tool with an `action`, which
+ * matches what the service actually dispatches on — splitting it into five
+ * MCP tools would describe a surface this service does not have. */
+export function storeMcpTools(store: { plan: PlanKey }, config: ServiceConfig, baseUrl = ""): McpTool[] {
+  // Catalogue first, quote second: that is the order the work happens in, and
+  // a model reads the list top-down.
+  return [{
+    name: TOOL_NAME,
+    // Shared with the root /mcp surface on purpose: these two drifted apart
+    // once, and the root shipped an `action: string` with no enum that no
+    // agent could call. One constant, both surfaces.
+    description: TOOL_DESCRIPTION,
+    inputSchema: TOOL_INPUT_SCHEMA,
+    async run(args) {
+      const out = await callStoreTool(store, config, args);
+      // A plan limit is a real answer the model should relay, not a crash.
+      if (!out.ok) return { ok: false, text: out.error };
+      return { ok: true, text: JSON.stringify(out.result, null, 2) };
+    },
+  }, ...acpTools(config, baseUrl)];
 }
 
 export async function handleAppRequest(
@@ -178,7 +477,19 @@ export async function handleAppRequest(
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") ?? 30) || 30));
     const since = Date.now() - days * 86_400_000;
     const funnel = await app.funnelSummary(since);
-    return new Response(JSON.stringify({ since_days: days, funnel }, null, 1), { headers: { "content-type": "application/json" } });
+    const scans = await app.scanOutcomeSummary(since);
+    // Counts only. No store URL, caller, request body or raw meta_json leaves
+    // this endpoint — an operations read must not become a data export.
+    return new Response(JSON.stringify({
+      since_days: days,
+      funnel,
+      scan_outcomes: scans,
+      notes: {
+        scan_completed: "answered scans only; a scan that could not read the store is in scan_outcomes.abstained",
+        attempted: "answered + abstained + unknown",
+        unknown: "recorded before the outcome was stored; never counted as a success",
+      },
+    }, null, 1), { headers: { "content-type": "application/json" } });
   }
 
   if (path === "/webhooks/paddle" && method === "POST") {
@@ -226,6 +537,143 @@ export async function handleAppRequest(
     return new Response(adminUserDetailPage(user, stores, billingEvents, resetLink), { headers: { "content-type": "text/html; charset=utf-8" } });
   }
 
+  // ---- Release Gate v2: intentionally separate from /api/scan, catalogue
+  // MCP, Paddle packets, and every financial settlement path. ----
+  if (path === "/api/v2/release-evidence" && method === "POST") {
+    if (!app) return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});
+    if(!/^application\/json(?:;|$)/i.test(request.headers.get("content-type")??""))return releaseGateJson(415,{code:"EVIDENCE_INVALID"});if(Number(request.headers.get("content-length")??"0")>16_384)return releaseGateJson(413,{code:"EVIDENCE_INVALID"});
+    try { const raw=await request.text();if(raw.length>16_384)return releaseGateJson(413,{code:"EVIDENCE_INVALID"});const packet=await validatePluginEvidence(JSON.parse(raw));const store=await app.getStore(packet.store_id);if(!store)return releaseGateJson(403,{code:"EVIDENCE_INVALID"});const root=packet.key_id==="current"?env.RELEASE_EVIDENCE_CURRENT_KEY:(previousEvidenceKeyAllowed(env.RELEASE_EVIDENCE_PREVIOUS_KEY_EXPIRES_AT)?env.RELEASE_EVIDENCE_PREVIOUS_KEY:undefined);const sig=request.headers.get("x-agentready-evidence-signature")??"";if(!root||sig.length!==64||!constantTimeEqual(sig,await hmac(await evidenceKey(root,store.id,packet.key_id),canonicalPluginEvidence(packet))))return releaseGateJson(403,{code:"EVIDENCE_INVALID"});const receipt=crypto.randomUUID();const stored=await app.recordPluginEvidence(receipt,store.id,store.userId,packet.nonce,packet.digest,JSON.stringify(packet),Date.parse(packet.expires_at),Date.parse(packet.generated_at));if(stored==="failed")return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});if(stored==="conflict")return releaseGateJson(409,{code:"EVIDENCE_CONFLICT"});return releaseGateJson(stored==="stored"?201:409,{code:stored==="stored"?"ACCEPTED":"REPLAY",...(stored==="stored"?{receipt_id:receipt,schema_version:packet.schema_version}:{})});
+    } catch { return releaseGateJson(400,{code:"EVIDENCE_INVALID"}); }
+  }
+  if (path === "/api/v2/release-api-tokens" && method === "GET") {
+    if(!app)return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});const user=await currentUser(request,app);if(!user)return releaseGateJson(401,{code:"AUTH_REQUIRED"});return releaseGateJson(200,{tokens:(await app.listReleaseApiTokens(user.userId)).map(publicToken)});
+  }
+  if (path === "/api/v2/release-api-tokens" && method === "POST") {
+    if(!app)return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});const user=await currentUser(request,app);if(!user)return releaseGateJson(401,{code:"AUTH_REQUIRED"});try{const created=await createReleaseToken(app,user.userId,parseTokenCreate(await request.json()));return releaseGateJson(201,{token:created.token,token_metadata:publicToken(created.row)});}catch(error){return releaseGateJson(400,{code:error instanceof Error?error.message:"INVALID_BODY"});}
+  }
+  const tokenPath=path.match(/^\/api\/v2\/release-api-tokens\/([A-Za-z0-9_-]{8,100})$/);
+  if(tokenPath&&method==="DELETE"){
+    if(!app)return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});const user=await currentUser(request,app);if(!user)return releaseGateJson(401,{code:"AUTH_REQUIRED"});return releaseGateJson(await app.revokeReleaseApiToken(tokenPath[1],user.userId)?204:404,{});
+  }
+  const rotatePath=path.match(/^\/api\/v2\/release-api-tokens\/([A-Za-z0-9_-]{8,100})\/rotate$/);
+  if(rotatePath&&method==="POST"){
+    if(!app)return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});const user=await currentUser(request,app);if(!user)return releaseGateJson(401,{code:"AUTH_REQUIRED"});const prior=(await app.listReleaseApiTokens(user.userId)).find(t=>t.id===rotatePath[1]&&t.revokedAt===null);if(!prior)return releaseGateJson(404,{code:"TOKEN_NOT_FOUND"});try{const created=await rotateReleaseToken(app,user.userId,prior);return releaseGateJson(201,{token:created.token,token_metadata:publicToken(created.row),replaced_token_id:prior.id});}catch{return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});}
+  }
+  const releaseCredentialsPath = path.match(/^\/api\/v2\/stores\/([^/]+)\/release-credentials$/);
+  if (releaseCredentialsPath && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+    const user = await currentUser(request, app);
+    if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    if (!sameOrigin(request)) return releaseGateJson(403, { code: "ORIGIN_REJECTED" });
+    const store = await app.getStore(releaseCredentialsPath[1]);
+    if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
+    if (!env.RELEASE_GATE_OWNERSHIP_SECRET || !env.RELEASE_EVIDENCE_CURRENT_KEY) {
+      return releaseGateJson(503, { code: "CREDENTIALS_UNAVAILABLE" });
+    }
+    const endpoint = (env.PUBLIC_BASE_URL ?? originOf(request)).replace(/\/+$/, "");
+    return releaseGateJson(200, {
+      store_id: store.id,
+      endpoint,
+      ownership_key: await deriveOwnershipKey(env.RELEASE_GATE_OWNERSHIP_SECRET, store.id),
+      evidence_key_id: "current",
+      evidence_key: await evidenceKey(env.RELEASE_EVIDENCE_CURRENT_KEY, store.id, "current"),
+    });
+  }
+  if (path === "/api/v2/preflight" && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+    // A bearer token that matches the configured channel secret replaces ONLY
+    // the per-IP limit — the Apify Actor shares an IP pool, so that counter
+    // fails a caller for other people's traffic. The per-target-origin limit
+    // is untouched: it protects merchants' stores, not our capacity.
+    const channel = preflightChannel(request, env);
+    try {
+      const raw = await request.json() as Record<string, unknown>;
+      // Idempotency keys are the channel's, not part of the public contract.
+      const runKey = channel === "channel" ? headerKey(request, "x-agentready-run") : null;
+      const itemKey = channel === "channel" ? headerKey(request, "x-agentready-item") : null;
+      const input = parsePreflightInput(raw);
+      const day = new Date().toISOString().slice(0, 10);
+
+      // A replay returns the outcome the first attempt reached, spends no
+      // budget and can never become a second future charge.
+      if (runKey && itemKey) {
+        const seen = await app.recallChannelOutcome(PREFLIGHT_CHANNEL_ID, runKey, itemKey);
+        if (seen) {
+          return releaseGateJson(seen.outcome === "USEFUL" ? 200 : 409, {
+            code: "REPLAYED", outcome: seen.outcome, billable: seen.billable,
+            store_origin: input.store_origin,
+          });
+        }
+      }
+
+      const originOk = await app.incrementReleaseUsage(
+        day, "preflight-origin", await subjectDigest(input.store_origin), 3);
+      if (!originOk) return rateLimited();
+
+      if (channel === "channel") {
+        // Distributed, and zero until Codex configures a cap.
+        const budgetOk = await app.consumeChannelBudget(day, PREFLIGHT_CHANNEL_ID);
+        if (!budgetOk) return rateLimited();
+      } else {
+        const ip = request.headers.get("cf-connecting-ip") ?? "unavailable";
+        const ipOk = await app.incrementReleaseUsage(day, "preflight-ip", await subjectDigest(ip), 10);
+        if (!ipOk) return rateLimited();
+      }
+
+      const result = await runPreflight(input);
+      if (runKey && itemKey) {
+        const answered = result.state !== "BLOCKED" && result.state !== "UNMEASURED";
+        await app.rememberChannelOutcome(PREFLIGHT_CHANNEL_ID, runKey, itemKey,
+          answered ? "USEFUL" : "ABSTAINED", answered);
+      }
+      return releaseGateJson(200, result);
+    } catch (error) { return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" }); }
+  }
+  const ownershipPath = path.match(/^\/api\/v2\/stores\/([^/]+)\/ownership-challenges$/);
+  if (ownershipPath && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    const store = await app.getStore(ownershipPath[1]); if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
+    const challenge = await new ReleaseGateStore(app).createChallenge(store.id, user.userId);
+    return releaseGateJson(201, { challenge_id: challenge.id, challenge: challenge.challenge, expires_at: new Date(challenge.expiresAt).toISOString(), proof_path: "/.well-known/agentready-ownership" });
+  }
+  const verifyPath = path.match(/^\/api\/v2\/stores\/([^/]+)\/ownership-challenges\/([^/]+)\/verify$/);
+  if (verifyPath && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    const store = await app.getStore(verifyPath[1]); if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null; if (!body || Object.keys(body).some(k => k !== "challenge" && k !== "proof") || typeof body.challenge !== "string" || typeof body.proof !== "string") return releaseGateJson(400, { code: "INVALID_BODY" });
+    const verified = await new ReleaseGateStore(app).verifyChallenge(verifyPath[2],store.id,user.userId,body.challenge,body.proof,env.RELEASE_GATE_OWNERSHIP_SECRET ?? "");
+    return releaseGateJson(verified ? 200 : 403, { verified });
+  }
+  if (path === "/api/v2/acceptance-runs" && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    try { const input = parseAcceptanceRunInput(await request.json()); const store = await app.getStore(input.store_id); if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
+      const gate = new ReleaseGateStore(app); if (!await app.hasVerifiedReleaseOwnership(store.id,user.userId)) return releaseGateJson(403, { code: "OWNERSHIP_REQUIRED" });const generation=await app.getActivePluginEvidence(store.id,user.userId);if(!generation)return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"BLOCKED",settlement:"disabled"});let signed;try{signed=await validatePluginEvidence(JSON.parse(generation.safePacket));}catch{return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"UNMEASURED",settlement:"disabled"});}if(signed.digest!==generation.digest||!evidenceCoversFamilies(signed,input.requested_families))return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"UNMEASURED",settlement:"disabled"});
+      if (!env.RELEASE_GATE_WORKFLOW) return releaseGateJson(503, { code: "WORKFLOW_UNAVAILABLE", settlement: "disabled" });
+      const run = await gate.createOrGetRun(user.userId,input);
+      try { await env.RELEASE_GATE_WORKFLOW.create({ params: { runId: run.id } }); }
+      catch { await gate.markDispatchFailed(run); return releaseGateJson(503, { code: "WORKFLOW_DISPATCH_FAILED", run_id:run.id, state:"TERMINAL", terminal_state:"INFRA_ERROR", settlement: "disabled" }); }
+      return releaseGateJson(202, { run_id: run.id, state: run.state, settlement: "disabled" });
+    } catch (error) { return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" }); }
+  }
+  const runPath = path.match(/^\/api\/v2\/acceptance-runs\/([^/]+)$/);
+  if (runPath && method === "GET") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" }); const run = await new ReleaseGateStore(app).getRun(runPath[1],user.userId); return run ? releaseGateJson(200,{ run_id:run.id,state:run.state,terminal_state:run.terminalState,evidence_digest:run.evidenceDigest }) : releaseGateJson(404,{ code:"RUN_NOT_FOUND" });
+  }
+  const claimPath = path.match(/^\/api\/v2\/acceptance-runs\/([^/]+)\/claim-result$/);
+  if (claimPath && method === "POST") {
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" }); const gate = new ReleaseGateStore(app); const run = await gate.getRun(claimPath[1],user.userId); if (!run) return releaseGateJson(404,{code:"RUN_NOT_FOUND"}); if (run.state !== "TERMINAL") return releaseGateJson(409,{code:"RESULT_NOT_READY"});
+    const claim = await gate.claim(run,"direct",await subjectDigest(user.userId)); return releaseGateJson(200,{ packet:claim.packet, delivery: claim.firstDelivery ? "FIRST" : "REPLAY", billable_eligibility: claim.billable ? "ELIGIBLE_ON_FIRST_DELIVERY" : "NOT_BILLABLE", settlement:"disabled" });
+  }
+  if (path === "/api/v2/comparisons" && method === "POST") {
+    if (!app) return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"}); const user = await currentUser(request,app); if (!user) return releaseGateJson(401,{code:"AUTH_REQUIRED"}); const body = await request.json().catch(() => null) as Record<string,unknown> | null; if (!body || Object.keys(body).some(k=>k!=="base_run_id"&&k!=="current_run_id") || typeof body.base_run_id !== "string" || typeof body.current_run_id !== "string") return releaseGateJson(400,{code:"INVALID_BODY"});
+    const gate = new ReleaseGateStore(app); const [base,current] = await Promise.all([gate.getRun(body.base_run_id,user.userId),gate.getRun(body.current_run_id,user.userId)]); if (!base || !current || base.storeId !== current.storeId) return releaseGateJson(404,{code:"COMPARISON_NOT_FOUND"}); const [baseJson,currentJson] = await Promise.all([app.getReleaseEvidence(base.id),app.getReleaseEvidence(current.id)]); if (!baseJson || !currentJson) return releaseGateJson(409,{code:"RESULT_NOT_READY"}); const b=JSON.parse(baseJson) as {checks:Array<{id:string;state:string}>}; const n=JSON.parse(currentJson) as {checks:Array<{id:string;state:string}>}; const old=new Map(b.checks.map(x=>[x.id,x.state])); return releaseGateJson(200,{ base_run_id:base.id,current_run_id:current.id,new_failures:n.checks.filter(x=>x.state==="FAIL"&&old.get(x.id)!=="FAIL").map(x=>x.id),recovered:n.checks.filter(x=>x.state==="PASS"&&old.get(x.id)==="FAIL").map(x=>x.id),evidence_hashes:[base.evidenceDigest,current.evidenceDigest] });
+  }
+  if (path === "/dashboard/release-gate" && method === "GET") {
+    if (!app) return new Response("Release Gate database is unavailable", { status: 503 }); const user = await currentUser(request,app); if (!user) return new Response(null,{status:302,headers:{location:"/login"}});
+    const runs = await app.listReleaseRuns(user.userId); const rows = runs.map(run => `<tr><td>${escapeHtml(run.id)}</td><td>${escapeHtml(run.state)}</td><td>${escapeHtml(run.terminalState ?? "—")}</td><td>${run.evidenceDigest ? "available" : "—"}</td></tr>`).join("") || "<tr><td colspan=\"4\">No Release Gate runs yet. Start with a free Store Preflight.</td></tr>";
+    return new Response(`<!doctype html><title>Release Gate — AgentReady Woo</title><main><h1>Release Gate</h1><p>Ownership-authorized release decisions. No order or payment is created.</p><table><thead><tr><th>Run</th><th>Progress</th><th>Decision</th><th>Evidence</th></tr></thead><tbody>${rows}</tbody></table><p>Settlement is disabled pending owner approval.</p></main>`,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
+  }
+
   // ---- public: scan ----
   if (path === "/scan" && method === "GET") {
     return new Response(null, { status: 302, headers: { location: "/#scan" } });
@@ -246,27 +694,42 @@ export async function handleAppRequest(
     let id = "";
     if (app) {
       id = crypto.randomUUID();
-      await app.saveScan({ id, storeUrl, score: result.score, resultJson: JSON.stringify(result), createdAt: Date.now() });
-      await app.recordFunnelEvent({ kind: "scan_completed", meta: { store_url: storeUrl, score: result.score, via: "api" } });
+      // A scan that abstained has no score. -1 is the ledger's "not scored"
+      // sentinel, chosen because the column is NOT NULL and 0 is a real score.
+      // The funnel kind stays `scan_completed` because funnel_events carries a
+      // CHECK(kind IN (...)) constraint that only a table rebuild can widen.
+      // That is a storage limit, not a reporting one: the outcome is written to
+      // `meta.state`, `funnelSummary` excludes an abstained row from its
+      // scan_completed count, and `scanOutcomeSummary` reports answered,
+      // abstained and unknown separately. Do not read the raw `kind` as a
+      // count of scans that answered.
+      await app.saveScan({ id, storeUrl, score: result.score ?? -1, resultJson: JSON.stringify(result), createdAt: Date.now() });
+      await app.recordFunnelEvent({ kind: "scan_completed", meta: { store_url: storeUrl, score: result.score ?? -1, state: result.state, via: "api" } });
+      await settleOwedReportsForStoreUrl(app, env, storeUrl);
     }
     return new Response(JSON.stringify({ ...result, id: id || undefined }), { headers: { "content-type": "application/json" } });
   }
   if (path === "/scan" && method === "POST") {
     const ip = request.headers.get("cf-connecting-ip") ?? "local";
     if (!scanAllowed(ip)) {
-      return new Response(scanFormPage(), { status: 429, headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(scanFormPage("rate_limited"), { status: 429, headers: { "content-type": "text/html; charset=utf-8" } });
     }
     const form = await readForm(request);
+    const entered = form.get("store_url") ?? "";
     let storeUrl = "";
-    try { storeUrl = normalizeStoreUrl(form.get("store_url") ?? ""); } catch (error) {
-      return new Response(scanFormPage(), { headers: { "content-type": "text/html; charset=utf-8" } });
+    // A rejected address used to come back as the blank form: same page, same
+    // empty field, nothing said. It reads as a page that did nothing.
+    try { storeUrl = normalizeStoreUrl(entered); } catch {
+      return new Response(scanFormPage("invalid_url", entered), {
+        status: 400, headers: { "content-type": "text/html; charset=utf-8" } });
     }
     const result = await scanStore(storeUrl, fetch);
     let id = "";
     if (app) {
       id = crypto.randomUUID();
-      await app.saveScan({ id, storeUrl, score: result.score, resultJson: JSON.stringify(result), createdAt: Date.now() });
-      await app.recordFunnelEvent({ kind: "scan_completed", meta: { store_url: storeUrl, score: result.score, via: "form" } });
+      await app.saveScan({ id, storeUrl, score: result.score ?? -1, resultJson: JSON.stringify(result), createdAt: Date.now() });
+      await app.recordFunnelEvent({ kind: "scan_completed", meta: { store_url: storeUrl, score: result.score ?? -1, state: result.state, via: "form" } });
+      await settleOwedReportsForStoreUrl(app, env, storeUrl);
     }
     return new Response(scanResultPage(result), {
       status: 200,
@@ -311,47 +774,79 @@ export async function handleAppRequest(
       offers: limited.offers,
       offer_limit: limited.limit,
       truncated: limited.truncated,
-      note: limited.truncated ? "Free plan shows the top 10 products — upgrade for unlimited offers." : undefined,
+      note: limited.truncated ? "Free plan shows the top 25 products — upgrade for unlimited offers." : undefined,
     }, null, 1), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300" } });
   }
   // Per-store commerce tool surface (search/offer/cart-link for one
   // merchant's own catalog): gated by the store's Paddle plan, the same
-  // top-10 free-tier limit /feed already enforces — NOT by the x402
+  // top-25 free-tier limit /feed already enforces — NOT by the x402
   // per-call payment rail. That rail belongs to a different product (the
   // global readiness-scan tool at POST /mcp, index.ts); a merchant who
   // paid via Paddle for "unlimited offers, signed cart handoff" expects
   // agents to actually be able to call this, not hit an unrelated wall.
+  // What this seller speaks, in ACP's own discovery shape. Served beside the
+  // endpoint rather than at /.well-known/acp.json, because that path belongs
+  // to the merchant's domain and this service is not it.
+  const discoveryMatch = path.match(/^\/mcp\/([^/]+)\/discovery$/);
+  if (discoveryMatch && method === "GET" && app) {
+    const store = await app.getStore(discoveryMatch[1]);
+    if (!store || store.status !== "active") return new Response(JSON.stringify({ error: "store not found" }), { status: 404, headers: { "content-type": "application/json" } });
+    const endpoint = `${originOf(request)}/mcp/${discoveryMatch[1]}`;
+    return new Response(JSON.stringify(discoveryDocument(endpoint), null, 2), {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
+    });
+  }
+
+  // MCP here is request/response only — there is no server-to-client stream to
+  // open, so a GET is answered rather than left to fall through to a 404, and
+  // it says where the description of this endpoint lives.
+  if (/^\/mcp\/[^/]+$/.test(path) && method === "GET") {
+    return new Response(JSON.stringify({
+      jsonrpc: "2.0", id: null,
+      error: { code: -32600, message: "this endpoint accepts POST only; it offers no server-to-client stream" },
+    }), {
+      status: 405,
+      headers: {
+        "content-type": "application/json",
+        allow: "POST",
+        link: `<${originOf(request)}${path}/discovery>; rel="service-desc"`,
+      },
+    });
+  }
+
   if (path.startsWith("/mcp/") && method === "POST" && app) {
     const store = await app.getStore(path.slice("/mcp/".length));
     if (!store || store.status !== "active") return new Response(JSON.stringify({ error: "store not found" }), { status: 404, headers: { "content-type": "application/json" } });
     const { config } = await storeServiceConfig(store, env as Record<string, string | undefined>, originOf(request));
-    const body = await request.json() as { tool: string; input: Record<string, unknown> };
+    const raw = await request.json().catch(() => null) as unknown;
+
+    // A real MCP client speaks JSON-RPC 2.0. This endpoint was documented as
+    // a Model Context Protocol endpoint while answering only {tool, input},
+    // so no client could connect. Both shapes work now, and BOTH run through
+    // callStoreTool below — the plan limits are enforced there, and a second
+    // code path would be a way around them.
+    if (isJsonRpc(raw)) {
+      const reply = await handleJsonRpc(raw, {
+        name: AGENTREADY_SERVER_NAME,
+        version: AGENTREADY_VERSION,
+        instructions: "Reads one WooCommerce store's public catalogue for shopping agents and prices a basket against it. "
+          + "The catalogue tool searches products, fetches an offer, and creates a signed cart link. The ACP checkout-session "
+          + `tools (Agentic Commerce Protocol ${ACP_API_VERSION}) return the store's own tax, shipping options and landed total — `
+          + "the part that cannot be worked out from a catalogue. No stock is reserved and no payment is taken: sessions stay at "
+          + "\"not_ready_for_payment\" and the buyer completes the purchase on the merchant's own store.",
+      }, storeMcpTools(store, config, originOf(request)));
+      if (reply === null) return new Response(null, { status: 202 });
+      return new Response(JSON.stringify(reply), { headers: { "content-type": "application/json" } });
+    }
+
+    const body = (raw ?? {}) as { tool: string; input: Record<string, unknown> };
     if (body.tool !== TOOL_NAME) {
       return new Response(JSON.stringify({ error: `unknown tool: ${body.tool}` }), { status: 400, headers: { "content-type": "application/json" } });
     }
-    const { runTool } = await import("./service.ts");
-    const action = typeof body.input?.action === "string" ? body.input.action : "";
     try {
-      if (action === "get_feed" || action === "search_products") {
-        const result = await runTool(body.input, config);
-        const offers = Array.isArray(result.offers) ? result.offers as Array<Record<string, unknown>> : [];
-        const limited = applyOfferLimit(offers, store.plan);
-        return new Response(JSON.stringify({ result: { ...result, offers: limited.offers, truncated: limited.truncated } }), { headers: { "content-type": "application/json" } });
-      }
-      if (action === "get_offer" || action === "create_cart_link") {
-        const limit = offerLimitFor(store.plan);
-        if (limit >= 0) {
-          const productId = Number(body.input.product_id);
-          const feed = await runTool({ action: "get_feed" }, config);
-          const visibleIds = (Array.isArray(feed.offers) ? feed.offers as Array<{ id?: unknown }> : [])
-            .slice(0, limit).map((o) => Number(o.id));
-          if (!visibleIds.includes(productId)) {
-            return new Response(JSON.stringify({ error: "this product is outside the free plan's visible catalog — upgrade for unlimited offers" }), { status: 403, headers: { "content-type": "application/json" } });
-          }
-        }
-      }
-      const result = await runTool(body.input, config);
-      return new Response(JSON.stringify({ result }), { headers: { "content-type": "application/json" } });
+      const out = await callStoreTool(store, config, body.input ?? {});
+      if (!out.ok) return new Response(JSON.stringify({ error: out.error }), { status: out.status, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ result: out.result }), { headers: { "content-type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "tool call failed" }), { status: 400, headers: { "content-type": "application/json" } });
     }
@@ -379,6 +874,9 @@ export async function handleAppRequest(
     if (!await app.createUser(userId, email, passwordHash)) {
       return new Response(signupPage("Could not create the account — try again.", email, googleOn), { headers: { "content-type": "text/html; charset=utf-8" } });
     }
+    // Someone can pay before they register, or pay under a different address
+    // and then sign in with it. Collect it instead of stranding the payment.
+    await claimPurchases(app, env as unknown as PaddleEnv, userId, email);
     const token = newSessionToken();
     await app.createSession({ tokenHash: await hashToken(token), userId, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
     return new Response(null, { status: 302, headers: { location: "/dashboard", "set-cookie": sessionCookie(token) } });
@@ -395,6 +893,7 @@ export async function handleAppRequest(
     const user = await app.getUserByEmail(email);
     const ok = user ? await verifyPassword(password, user.passwordHash) : false;
     if (!user || !ok) return new Response(loginPage("Wrong email or password.", email, googleOn), { headers: { "content-type": "text/html; charset=utf-8" } });
+    await claimPurchases(app, env as unknown as PaddleEnv, user.id, email);
     const token = newSessionToken();
     await app.createSession({ tokenHash: await hashToken(token), userId: user.id, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
     return new Response(null, { status: 302, headers: { location: "/dashboard", "set-cookie": sessionCookie(token) } });
@@ -455,6 +954,7 @@ export async function handleAppRequest(
       if (!await app.createUser(userId, email, GOOGLE_NO_PASSWORD_HASH)) return fail("Could not create the account — try again.");
       user = { id: userId, email, passwordHash: GOOGLE_NO_PASSWORD_HASH, createdAt: Date.now() };
     }
+    await claimPurchases(app, env as unknown as PaddleEnv, user.id, email);
     const token = newSessionToken();
     await app.createSession({ tokenHash: await hashToken(token), userId: user.id, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
     // Two cookies (the new session, and clearing the OAuth state nonce) need
@@ -546,13 +1046,14 @@ export async function handleAppRequest(
         : `<div class="card"><strong>Store limit reached on the ${escapeHtml(plan)} plan.</strong>
            <p class="sub" style="margin:8px 0 12px">${plan === "free" ? "Upgrade to Agency for 25 stores, or manage your existing store." : "Agency supports 25 stores."}</p>
            <a class="btn btn-line" href="/dashboard/billing">Billing</a></div>`;
-      // Only a connected, free-plan store has actually hit the 10-product
+      // Only a connected, free-plan store has actually hit the 25-product
       // cap — a brand-new account with zero stores hasn't earned this pitch
       // yet, and a Pro/Agency account shouldn't see its own upgrade offer.
+      const checkout = checkoutConfig(env);
       const upgradeNudge = stores.length && plan === "free"
-        ? proUpgradeCard("You're capped at the top 10", "Your other products are invisible to AI agents.", paddleLinks(env).pro)
+        ? proUpgradeCard("You're capped at the top 25", "Your other products are invisible to AI agents.", checkout)
         : "";
-      return new Response(dashboardPage(session.email, cards.join("\n"), addCta, upgradeNudge), { headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(dashboardPage(session.email, cards.join("\n"), addCta, upgradeNudge, checkout), { headers: { "content-type": "text/html; charset=utf-8" } });
     }
 
     if (path === "/dashboard/store" && method === "GET") {
@@ -565,6 +1066,36 @@ export async function handleAppRequest(
       const limit = plan === "agency" ? 25 : 1;
       if (stores.length >= limit) return new Response(storeFormPage(`Store limit reached on the ${plan} plan.`, { name: "", storeUrl: "", consumerKey: "" }, "create", session.email), { headers: { "content-type": "text/html; charset=utf-8" } });
       return saveStore(request, app, env, session.userId, session.email, null);
+    }
+    const releaseSetupMatch = /^\/dashboard\/store\/([a-f0-9-]{36})\/release-gate$/.exec(path);
+    if (releaseSetupMatch && (method === "GET" || method === "POST")) {
+      const store = await app.getStoreForUser(releaseSetupMatch[1], session.userId);
+      if (!store) return new Response("not found", { status: 404 });
+      if (method === "POST" && !sameOrigin(request)) return new Response("cross-origin form rejected", { status: 403 });
+      const [ownershipVerified, evidenceReceived] = await Promise.all([
+        app.hasVerifiedReleaseOwnership(store.id, session.userId),
+        app.getActivePluginEvidence(store.id, session.userId).then(Boolean),
+      ]);
+      let bundle;
+      let error = "";
+      if (method === "POST") {
+        if (!env.RELEASE_GATE_OWNERSHIP_SECRET || !env.RELEASE_EVIDENCE_CURRENT_KEY) {
+          error = "Connection bundles are temporarily unavailable. Your store settings were not changed.";
+        } else {
+          bundle = {
+            endpoint: (env.PUBLIC_BASE_URL ?? originOf(request)).replace(/\/+$/, ""),
+            storeId: store.id,
+            ownershipKey: await deriveOwnershipKey(env.RELEASE_GATE_OWNERSHIP_SECRET, store.id),
+            evidenceKey: await evidenceKey(env.RELEASE_EVIDENCE_CURRENT_KEY, store.id, "current"),
+          };
+        }
+      }
+      return new Response(releaseGateSetupPage({
+        store, email: session.email, ownershipVerified, evidenceReceived, bundle, error,
+      }), {
+        status: error ? 503 : 200,
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      });
     }
     const editMatch = /^\/dashboard\/store\/([a-f0-9-]{36})$/.exec(path);
     if (editMatch) {
@@ -583,26 +1114,42 @@ export async function handleAppRequest(
 
     if (path === "/dashboard/billing" && method === "GET") {
       const stores = await app.listStores(session.userId);
-      const links = paddleLinks(env);
-      const trackedLinks = {
-        report: links.report ? "/dashboard/billing/checkout/report" : undefined,
-        pro: links.pro ? "/dashboard/billing/checkout/pro" : undefined,
-        agency: links.agency ? "/dashboard/billing/checkout/agency" : undefined,
-      };
-      return new Response(billingPage(stores[0]?.plan ?? "free", session.email, trackedLinks), { headers: { "content-type": "text/html; charset=utf-8" } });
+      // Last-chance retry: a buyer who paid before scanning lands here on
+      // their next visit, and this settles the debt without them asking.
+      if (stores.length) await settleOwedReportsForStoreUrl(app, env, stores[0].storeUrl);
+      const [billingEvents, reports] = await Promise.all([
+        app.listBillingEvents(session.userId),
+        app.listReportEntitlements(session.userId),
+      ]);
+      return new Response(
+        billingPage(stores[0]?.plan ?? "free", session.email, checkoutConfig(env), billingEvents, reports),
+        { headers: { "content-type": "text/html; charset=utf-8" } });
     }
 
-    const checkoutMatch = /^\/dashboard\/billing\/checkout\/(report|pro|agency)$/.exec(path);
-    if (checkoutMatch && method === "GET") {
-      const target = checkoutMatch[1] as "report" | "pro" | "agency";
-      const links = paddleLinks(env);
-      const destination = links[target];
-      if (!destination) return new Response("checkout not configured", { status: 404 });
-      const stores = await app.listStores(session.userId);
-      await app.recordFunnelEvent({
-        kind: "checkout_started", userId: session.userId, storeId: stores[0]?.id ?? null, plan: target,
-      });
-      return new Response(null, { status: 302, headers: { location: destination } });
+    // A purchased report, re-readable in the app. The whole point of storing
+    // the HTML: the buyer should never have to find the original email.
+    const reportMatch = path.match(/^\/dashboard\/reports\/([0-9a-f-]{36})$/);
+    if (reportMatch && method === "GET") {
+      const owned = await app.getReportEntitlement(reportMatch[1], session.userId);
+      if (!owned?.reportHtml) {
+        return new Response("Report not found, or not delivered yet.", { status: 404 });
+      }
+      return new Response(owned.reportHtml, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+
+    // Fired client-side (best-effort) right before Paddle.Checkout.open() —
+    // preserves the checkout_started funnel stage now that checkout itself
+    // happens in-page via Paddle.js instead of a server-side redirect.
+    if (path === "/dashboard/billing/checkout-started" && method === "POST") {
+      const body = await request.json().catch(() => null) as { plan?: string } | null;
+      const plan = body?.plan === "report" || body?.plan === "pro" || body?.plan === "agency" ? body.plan : null;
+      if (plan) {
+        const stores = await app.listStores(session.userId);
+        await app.recordFunnelEvent({
+          kind: "checkout_started", userId: session.userId, storeId: stores[0]?.id ?? null, plan,
+        });
+      }
+      return new Response(null, { status: 204 });
     }
 
     if (path === "/dashboard/account" && method === "GET") {

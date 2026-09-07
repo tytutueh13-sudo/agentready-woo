@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test"
+    "test": "node --test",
+    "test:wordpress": "bash wordpress-plugin/agentready-woo/integration/run-both.sh",
+    "build:plugin": "python3 scripts/package-wordpress-plugin.py",
+    "verify:protocol-bundles": "node scripts/verify-protocol-bundles.mjs",
+    "dev:worker": "wrangler dev --local --port 8792"
   },
   "devDependencies": {
     "typescript": "5.9.3",

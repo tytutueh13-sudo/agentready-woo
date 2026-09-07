@@ -1,0 +1,1 @@
+{"release":"2025-06-18","required":["initialize","notifications/initialized","ping","tools/list","tools/call"],"safe_tool":"release_gate_self_check"}

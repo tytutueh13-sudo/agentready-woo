@@ -39,7 +39,7 @@ AI-referred shoppers convert +38% higher than traditional search (Adobe Analytic
 1. Install and activate the plugin.
 2. Go to WooCommerce → AgentReady.
 3. Your discovery file is already live at `/.well-known/agenticweb.md`.
-4. Optional: run the free scan at agentready.utilityhouse.xyz to get your AgentReady feed + MCP endpoint, then paste the endpoint URL into the settings.
+4. Optional: run the free scan at app.utilityhouse.xyz to get your AgentReady feed + MCP endpoint, then paste the endpoint URL into the settings.
 
 == Frequently Asked Questions ==
 
@@ -61,7 +61,7 @@ SEO plugins make you readable to Google's crawler. AgentReady makes you readable
 
 = What does it cost? =
 
-The plugin is free. The AgentReady free tier keeps a basic feed and discovery live forever (your top 10 products). Paid tiers add unlimited offers, cart handoff and agent analytics.
+The plugin is free. The AgentReady free tier keeps a basic feed and discovery live forever (your top 25 products). Paid tiers add unlimited offers, cart handoff and agent analytics.
 
 == Screenshots ==
 

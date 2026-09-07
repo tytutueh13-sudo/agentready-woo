@@ -249,7 +249,7 @@ export class RevenueGuard {
     trace.push("margin");if(ctx.pricePerCall>0&&!checkPrice(ctx.pricePerCall,ctx.estimatedCost,this.guard).passes)return this.reject(ctx.productId,"margin","price does not cover worst-case cost",trace);
     if(ctx.pricePerCall===0&&ctx.estimatedCost===0){trace.push("cache");try{const cached=await this.cache.get(ctx.productId,ctx.requestPayload);if(cached.hit){this.emit("cache_hit",ctx.productId,"cache");this.emit("cost_recorded",ctx.productId,"usage_record",{cost:0,cacheHit:true});return{allowed:true,stageReached:"result",reason:"cache hit",result:cached.value,cacheHit:true,trace:[...trace,"result"]};}}catch{} }
     const requestHash=await digestText(JSON.stringify({productId:ctx.productId,payload:ctx.requestPayload}));
-    const requestId=ctx.requestId&&/^[A-Za-z0-9._:-]{16,160}$/.test(ctx.requestId)?ctx.requestId:requestHash;
+    let requestId=ctx.requestId&&/^[A-Za-z0-9._:-]{16,160}$/.test(ctx.requestId)?ctx.requestId:requestHash;
     let requirement:PaymentRequirement|undefined;let publicRequirement:PaymentRequirementPublic|undefined;const ceiling=Math.max(ctx.estimatedCost,ctx.pricePerCall);
     if(ctx.pricePerCall>0){
       if(!this.paymentProvider)return this.reject(ctx.productId,"payment","payment provider required",trace);
@@ -257,7 +257,26 @@ export class RevenueGuard {
     }
     let op=await this.store.getOperation(requestId);
     if(op&&op.paymentProvider!=="none"&&!['SETTLED','RESULT_RELEASED'].includes(op.state)&&!await this.restorePaymentProof(op))return this.reject(ctx.productId,"payment","durable payment proof is unavailable; result withheld",trace,publicRequirement);
-    if(op){if(op.requestHash!==requestHash||op.productId!==ctx.productId){await this.store.recordFinancialIncident(op.operationId,"IDEMPOTENCY_KEY_REUSE","request identity mismatch");return this.reject(ctx.productId,"payment","idempotency key is bound to another request",trace);}if(["RESULT_RELEASED","SETTLED","UPSTREAM_STARTED","RESULT_ESCROWED","SETTLEMENT_PENDING","SETTLEMENT_AMBIGUOUS","RECOVERY_REQUIRED"].includes(op.state)){if(op.paymentProvider==="none"&&op.state==="RESULT_RELEASED")this.emit("cache_hit",ctx.productId,"cache");return this.recoverOperation(op,trace);}if(op.state==="FAILED_FINAL")return this.reject(ctx.productId,"payment","operation is in a final failed state",trace);}
+    if(op){if(op.requestHash!==requestHash||op.productId!==ctx.productId){await this.store.recordFinancialIncident(op.operationId,"IDEMPOTENCY_KEY_REUSE","request identity mismatch");return this.reject(ctx.productId,"payment","idempotency key is bound to another request",trace);}if(["RESULT_RELEASED","SETTLED","UPSTREAM_STARTED","RESULT_ESCROWED","SETTLEMENT_PENDING","SETTLEMENT_AMBIGUOUS","RECOVERY_REQUIRED"].includes(op.state)){if(op.paymentProvider==="none"&&op.state==="RESULT_RELEASED")this.emit("cache_hit",ctx.productId,"cache");return this.recoverOperation(op,trace);}if(op.state==="FAILED_FINAL"){
+      // FAILED_FINAL is terminal, and must stay terminal: a paid operation
+      // that failed has money in the story, and re-running it is how a buyer
+      // gets charged twice or a settled result gets replayed.
+      //
+      // An operation that never took a payment has none of that. There is
+      // nothing to protect, and the caller is retrying, not replaying — so a
+      // single upstream hiccup was turning into a permanent refusal for that
+      // exact input, answered 402 on an endpoint that costs nothing.
+      // Observed on the free readiness scan: call one reported the upstream
+      // error, calls two onward were refused forever.
+      //
+      // The state machine is left alone. This attempt simply gets its own
+      // operation rather than inheriting a dead one.
+      if(ctx.pricePerCall>0||op.paymentProvider!=="none"){
+        return this.reject(ctx.productId,"payment","operation is in a final failed state",trace);
+      }
+      requestId=`${requestId}:retry:${crypto.randomUUID()}`;
+      op=null;
+    }}
     if(!op&&requirement&&!ctx.paymentReference)return this.reject(ctx.productId,"payment","payment proof required",trace,publicRequirement);
     const blockedBefore=await this.newExposureBlocked(ctx.productId,ctx.pricePerCall>0);
     if(blockedBefore)return this.reject(ctx.productId,"kill_switch",blockedBefore,trace);

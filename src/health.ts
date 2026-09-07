@@ -30,9 +30,9 @@ export function health(serviceName: string, version: string,
 }
 
 export function status(serviceName: string, version: string,
-  env: Record<string, string | undefined>): StatusPayload {
+  env: Record<string, string | undefined>, productFlagKey = serviceName): StatusPayload {
   const revenueSystemEnabled = (env.REVENUE_SYSTEM_ENABLED ?? "").trim().toLowerCase() === "true";
-  const productFlag = env[`PRODUCT_${serviceName}_ENABLED`];
+  const productFlag = env[`PRODUCT_${productFlagKey}_ENABLED`];
   const productEnabled = productFlag !== undefined && productFlag.trim().toLowerCase() === "true";
   const d1ConcurrencyVerified = (env.D1_REAL_CONCURRENCY_VERIFIED ?? "").trim().toLowerCase() === "true";
   const x402InteropVerified = (env.X402_WIRE_INTEROP_VERIFIED ?? "").trim().toLowerCase() === "true";

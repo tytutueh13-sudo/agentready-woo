@@ -1,92 +1,52 @@
-// Tests for the AI content readiness judge: must never throw, must degrade
-// to null (not break the deep report) whenever anything is missing or
-// wrong — no key, no products, a bad response, or a network failure.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { judgeReadiness } from "../src/core/aiJudge.ts";
+import { AI_MAX_OUTPUT_TOKENS, AI_MODEL, judgeReadiness, safeProducts } from "../src/core/aiJudge.ts";
 
-const PRODUCTS = [{ title: "Wool Cap", description: "ok", hasImage: true }];
+const PRODUCTS = [{ title: "Wool Cap", description: "A warm merino wool cap.", hasImage: true }];
 
-test("judgeReadiness returns null when no API key is configured", async () => {
-  const result = await judgeReadiness({}, "https://store.example.com", PRODUCTS);
-  assert.equal(result, null);
+test("judgeReadiness returns null without the Workers AI binding", async () => {
+  assert.equal(await judgeReadiness({}, PRODUCTS), null);
 });
 
-test("judgeReadiness returns null when there are no products to judge", async () => {
-  const result = await judgeReadiness({ OPENAI_API_KEY: "sk-fixture" }, "https://store.example.com", []);
-  assert.equal(result, null);
+test("judgeReadiness sends only the bounded product projection to Workers AI", async () => {
+  let called = false;
+  const result = await judgeReadiness({ AI: { run: async (model, input) => {
+    called = true;
+    assert.equal(model, AI_MODEL);
+    assert.equal(input.max_tokens, AI_MAX_OUTPUT_TOKENS);
+    assert.match(String((input.messages as { content: string }[])[0].content), /Wool Cap/);
+    assert.doesNotMatch(String((input.messages as { content: string }[])[0].content), /store\.example/);
+    return { response: JSON.stringify({
+      summary: "The product needs a clearer material and fit description.",
+      suggestions: [{ title: "Wool Cap", rewrite: "A warm merino wool cap with a soft, close fit." }],
+    }) };
+  } } }, PRODUCTS);
+  assert.equal(called, true);
+  assert.equal(result?.suggestions[0]?.title, "Wool Cap");
 });
 
-test("judgeReadiness parses a well-formed response", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_url, init) => {
-    const body = JSON.parse(String((init as RequestInit).body));
-    assert.equal(body.model, "gpt-5-nano");
-    assert.match(body.messages[0].content, /Wool Cap/);
-    return new Response(JSON.stringify({
-      choices: [{ message: { content: JSON.stringify({
-        summary: "Descriptions are too thin for an agent to act on.",
-        suggestions: [{ title: "Wool Cap", rewrite: "A warm merino wool cap, one size fits most." }],
-      }) } }],
-    }), { status: 200 });
-  }) as typeof fetch;
-  try {
-    const result = await judgeReadiness({ OPENAI_API_KEY: "sk-fixture" }, "https://store.example.com", PRODUCTS);
-    assert.equal(result?.summary, "Descriptions are too thin for an agent to act on.");
-    assert.equal(result?.suggestions[0]?.title, "Wool Cap");
-  } finally {
-    globalThis.fetch = originalFetch;
+test("safeProducts drops sensitive content, duplicates, and excess products before model input", () => {
+  const safe = safeProducts([
+    { title: "Order #123", description: "A normal product", hasImage: true },
+    { title: "Wool Cap", description: "Contact a@shop.example for help", hasImage: true },
+    ...PRODUCTS,
+    { title: "Wool Cap", description: "duplicate", hasImage: false },
+    { title: "Scarf", description: "Soft cotton.", hasImage: true },
+    { title: "Socks", description: "Everyday socks.", hasImage: true },
+    { title: "Gloves", description: "Would exceed cap.", hasImage: true },
+  ]);
+  assert.deepEqual(safe.map(product => product.title), ["Wool Cap", "Scarf", "Socks"]);
+});
+
+test("judgeReadiness rejects unknown titles, sensitive replies, malformed objects, and binding failures", async () => {
+  const responses = [
+    { response: JSON.stringify({ summary: "Fine", suggestions: [{ title: "Unknown", rewrite: "No" }] }) },
+    { response: JSON.stringify({ summary: "Email buyer@example.com", suggestions: [] }) },
+    { response: JSON.stringify({ summary: "Fine", suggestions: [{ title: "Wool Cap", rewrite: "Fine", extra: true }] }) },
+    { response: "not json" },
+  ];
+  for (const response of responses) {
+    assert.equal(await judgeReadiness({ AI: { run: async () => response } }, PRODUCTS), null);
   }
-});
-
-test("judgeReadiness returns null when OpenAI rejects the request", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => new Response("unauthorized", { status: 401 })) as typeof fetch;
-  try {
-    const result = await judgeReadiness({ OPENAI_API_KEY: "sk-bad" }, "https://store.example.com", PRODUCTS);
-    assert.equal(result, null);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("judgeReadiness returns null on a malformed response body rather than throwing", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => new Response(JSON.stringify({
-    choices: [{ message: { content: "not valid json" } }],
-  }), { status: 200 })) as typeof fetch;
-  try {
-    const result = await judgeReadiness({ OPENAI_API_KEY: "sk-fixture" }, "https://store.example.com", PRODUCTS);
-    assert.equal(result, null);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("judgeReadiness returns null on a network error rather than throwing", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => { throw new Error("network down"); }) as typeof fetch;
-  try {
-    const result = await judgeReadiness({ OPENAI_API_KEY: "sk-fixture" }, "https://store.example.com", PRODUCTS);
-    assert.equal(result, null);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("judgeReadiness drops malformed suggestion entries instead of failing the whole result", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => new Response(JSON.stringify({
-    choices: [{ message: { content: JSON.stringify({
-      summary: "Fine.",
-      suggestions: [{ title: "Wool Cap", rewrite: "Better text" }, { title: 42, rewrite: null }],
-    }) } }],
-  }), { status: 200 })) as typeof fetch;
-  try {
-    const result = await judgeReadiness({ OPENAI_API_KEY: "sk-fixture" }, "https://store.example.com", PRODUCTS);
-    assert.equal(result?.suggestions.length, 1);
-    assert.equal(result?.suggestions[0]?.title, "Wool Cap");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.equal(await judgeReadiness({ AI: { run: async () => { throw new Error("unavailable"); } } }, PRODUCTS), null);
 });

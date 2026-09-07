@@ -1,0 +1,11 @@
+{
+  "reviewed_at": "2026-09-06T00:00:00.000Z",
+  "artifacts": [
+    {"family":"mcp","release":"2025-06-18","path":"protocol-fixtures/mcp/schema-2025-06-18.json","source_url":"https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/2025-06-18/schema.json","sha256":"af845e7e5b9d27107d1690f0936022546177a1403e63ffb11470135b296a2e01","license":"MIT"},
+    {"family":"ucp","release":"2026-08-25","path":"protocol-fixtures/ucp/spec-index-2026-08-25.txt","source_url":"https://ucp.dev/2026-08-25/llms.txt","sha256":"9bc65f401b227831474fc6d64f650ceacf2be1d16e6e7e3cf6a941ce3c340873","license":"Apache-2.0"},
+    {"family":"acp","release":"2026-04-17","path":"protocol-fixtures/acp/openapi-2026-04-17.yaml","source_url":"https://raw.githubusercontent.com/agentic-commerce-protocol/agentic-commerce-protocol/main/spec/2026-04-17/openapi/openapi.agentic_checkout.yaml","sha256":"2a0aa239b4aed50732461d9b7e443ad98d5c2d3431277899433ead07cbd4fc55","license":"Apache-2.0"},
+    {"family":"mcp","release":"2025-06-18","path":"protocol-fixtures/mcp/vectors-2025-06-18.json","source_url":"local-reviewed-vector","sha256":"404ad329fc4b3059b35a202262ef2d1333c33373de5fe0365fa35d0b77c4b912","license":"CC0-1.0"},
+    {"family":"ucp","release":"2026-08-25","path":"protocol-fixtures/ucp/vectors-2026-08-25.json","source_url":"local-reviewed-vector","sha256":"b0cca095bc10c14dcefb8586e825a430de542ce72b4d96ce88e5434f58b599a4","license":"CC0-1.0"},
+    {"family":"acp","release":"2026-04-17","path":"protocol-fixtures/acp/vectors-2026-04-17.json","source_url":"local-reviewed-vector","sha256":"ed56168b531aeca448a11debe0021669a8a904b8e34af614714f1efc2e8b54ea","license":"CC0-1.0"}
+  ]
+}

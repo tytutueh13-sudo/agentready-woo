@@ -1,6 +1,8 @@
 # ── Search engines ──────────────────────────────────────────────
+# The paid Release Gate remains private while its billing canary is pending.
+# General search indexing is intentionally disabled during that release phase.
 User-agent: *
-Allow: /
+Disallow: /
 Disallow: /dashboard
 Disallow: /api/
 Disallow: /webhooks/

@@ -17,7 +17,7 @@ const CONFIG_ENV = {
   WOO_CONSUMER_KEY: "ck_test",
   WOO_CONSUMER_SECRET: "cs_test",
   CART_SIGNING_SECRET: CART_SECRET_FIXTURE,
-  PUBLIC_BASE_URL: "https://mcp.utilityhouse.xyz",
+  PUBLIC_BASE_URL: "https://app.utilityhouse.xyz",
 };
 
 const SAMPLE_PRODUCT = {
@@ -189,8 +189,8 @@ test("upstream errors surface with status codes", async () => {
 test("buildAgenticWebMd lists tools and endpoints", () => {
   const md = buildAgenticWebMd(configFromEnv(CONFIG_ENV));
   assert.match(md, /# AgentReady Woo/);
-  assert.match(md, /https:\/\/mcp\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
-  assert.match(md, /GET https:\/\/mcp\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
+  assert.match(md, /https:\/\/app\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
+  assert.match(md, /GET https:\/\/app\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
   for (const tool of ["search_products", "get_offer", "get_feed", "create_cart_link", "verify_cart_link"]) {
     assert.match(md, new RegExp(tool));
   }

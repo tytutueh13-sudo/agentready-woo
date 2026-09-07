@@ -58,10 +58,29 @@ export async function storeServiceConfig(
 }
 
 export function normalizeStoreUrl(url: string): string {
-  const trimmed = String(url ?? "").trim().replace(/\/+$/, "");
-  if (!/^https:\/\//.test(trimmed)) throw new Error("store URL must be https://");
+  const trimmed = String(url ?? "").trim();
   if (trimmed.length > 200) throw new Error("store URL too long");
-  return trimmed;
+  let parsed: URL;
+  try { parsed = new URL(trimmed); }
+  catch { throw new Error("store URL must be a valid https:// origin"); }
+  if (parsed.protocol !== "https:") throw new Error("store URL must be https://");
+  if (parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash) {
+    throw new Error("store URL must be a public https:// origin");
+  }
+  if (!/^\/*$/.test(parsed.pathname)) {
+    throw new Error("store URL must not include a path");
+  }
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (!host.includes(".") || host === "localhost" || host.endsWith(".localhost")
+      || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".invalid")) {
+    throw new Error("store URL must use a public hostname");
+  }
+  // Literal IPs are unnecessary for storefronts and make an outbound scanner
+  // an SSRF primitive. Hostnames remain subject to the Workers egress policy.
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(":")) {
+    throw new Error("store URL must use a public hostname");
+  }
+  return `https://${host}`;
 }
 
 export function applyOfferLimit<T extends { id?: unknown }>(offers: T[], plan: PlanKey): { offers: T[]; limit: number; truncated: boolean } {

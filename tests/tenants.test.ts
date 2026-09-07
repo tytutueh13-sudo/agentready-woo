@@ -27,14 +27,14 @@ test("encryption is non-deterministic (fresh IV per call)", async () => {
 });
 
 test("applyOfferLimit truncates the free plan and passes paid plans through", () => {
-  const offers = Array.from({ length: 14 }, (_, i) => ({ id: i }));
+  const offers = Array.from({ length: 30 }, (_, i) => ({ id: i }));
   const free = applyOfferLimit(offers, "free");
-  assert.equal(free.offers.length, 10);
+  assert.equal(free.offers.length, 25);
   assert.equal(free.truncated, true);
-  assert.equal(free.limit, 10);
+  assert.equal(free.limit, 25);
 
   const pro = applyOfferLimit(offers, "pro");
-  assert.equal(pro.offers.length, 14);
+  assert.equal(pro.offers.length, 30);
   assert.equal(pro.truncated, false);
 
   const smallFree = applyOfferLimit(offers.slice(0, 4), "free");
@@ -45,4 +45,14 @@ test("normalizeStoreUrl trims slashes and rejects non-https", () => {
   assert.equal(normalizeStoreUrl("https://store.example.com///"), "https://store.example.com");
   assert.throws(() => normalizeStoreUrl("http://store.example.com"), /https/);
   assert.throws(() => normalizeStoreUrl(""), /https/);
+});
+
+test("normalizeStoreUrl accepts only a public origin", () => {
+  for (const value of [
+    "https://127.0.0.1", "https://[::1]", "https://localhost",
+    "https://shop.local", "https://shop.internal", "https://shop.invalid",
+    "https://user:pass@shop.example.com", "https://shop.example.com:8443",
+    "https://shop.example.com/private", "https://shop.example.com?target=private",
+  ]) assert.throws(() => normalizeStoreUrl(value), /public|path/);
+  assert.equal(normalizeStoreUrl("https://SHOP.EXAMPLE.COM/"), "https://shop.example.com");
 });

@@ -73,13 +73,13 @@ async function setupUserWithEditableStore(app: AppStore) {
   return { token };
 }
 
-test("GET /feed/:id on a free store past 10 offers records wall_shown once", async () => {
+test("GET /feed/:id on a free store past 25 offers records wall_shown once", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   await setupUserWithStore(app, "free");
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify(
-    Array.from({ length: 12 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", status: "publish" })),
+    Array.from({ length: 30 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", status: "publish" })),
   ), { status: 200 })) as typeof fetch;
   try {
     const url = new URL("https://worker.example.com/feed/s1");
@@ -87,7 +87,7 @@ test("GET /feed/:id on a free store past 10 offers records wall_shown once", asy
     assert.equal(res?.status, 200);
     const body = await res!.json() as { truncated: boolean; offers: unknown[] };
     assert.equal(body.truncated, true);
-    assert.equal(body.offers.length, 10);
+    assert.equal(body.offers.length, 25);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -101,7 +101,7 @@ test("GET /feed/:id on a pro store is not truncated and records no wall_shown", 
   await setupUserWithStore(app, "pro");
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify(
-    Array.from({ length: 12 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", status: "publish" })),
+    Array.from({ length: 30 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", status: "publish" })),
   ), { status: 200 })) as typeof fetch;
   try {
     const url = new URL("https://worker.example.com/feed/s1");
@@ -129,12 +129,12 @@ function mockWooFetch(): typeof fetch {
       return new Response(JSON.stringify({ id, name: `Item ${id}`, price: "10.00", stock_status: "instock", status: "publish" }), { status: 200 });
     }
     return new Response(JSON.stringify(
-      Array.from({ length: 12 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", stock_status: "instock", status: "publish" })),
-    ), { status: 200, headers: { "x-wp-total": "12" } });
+      Array.from({ length: 30 }, (_, i) => ({ id: i, name: `Item ${i}`, price: "10.00", stock_status: "instock", status: "publish" })),
+    ), { status: 200, headers: { "x-wp-total": "30" } });
   }) as typeof fetch;
 }
 
-test("POST /mcp/:id get_feed on a free store is truncated to 10, same as /feed", async () => {
+test("POST /mcp/:id get_feed on a free store is truncated to 25, same as /feed", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   await setupUserWithStore(app, "free");
@@ -148,14 +148,14 @@ test("POST /mcp/:id get_feed on a free store is truncated to 10, same as /feed",
     const res = await handleAppRequest(request, env({}, db), url, guard());
     assert.equal(res?.status, 200);
     const body = await res!.json() as { result: { offers: unknown[]; truncated: boolean } };
-    assert.equal(body.result.offers.length, 10);
+    assert.equal(body.result.offers.length, 25);
     assert.equal(body.result.truncated, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("POST /mcp/:id get_offer for a product outside the free plan's top 10 is refused, not payment-gated", async () => {
+test("POST /mcp/:id get_offer for a product outside the free plan's top 25 is refused, not payment-gated", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   await setupUserWithStore(app, "free");
@@ -163,7 +163,7 @@ test("POST /mcp/:id get_offer for a product outside the free plan's top 10 is re
   globalThis.fetch = mockWooFetch();
   try {
     const request = new Request("https://worker.example.com/mcp/s1", {
-      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 11 } }),
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 27 } }),
     });
     const url = new URL(request.url);
     const res = await handleAppRequest(request, env({}, db), url, guard());
@@ -175,7 +175,7 @@ test("POST /mcp/:id get_offer for a product outside the free plan's top 10 is re
   }
 });
 
-test("POST /mcp/:id get_offer for a product inside the free plan's top 10 succeeds with no payment step", async () => {
+test("POST /mcp/:id get_offer for a product inside the free plan's top 25 succeeds with no payment step", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   await setupUserWithStore(app, "free");
@@ -203,7 +203,7 @@ test("POST /mcp/:id get_offer on a pro store is never limited, for any product i
   globalThis.fetch = mockWooFetch();
   try {
     const request = new Request("https://worker.example.com/mcp/s1", {
-      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 11 } }),
+      method: "POST", body: JSON.stringify({ tool: "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h", input: { action: "get_offer", product_id: 27 } }),
     });
     const url = new URL(request.url);
     const res = await handleAppRequest(request, env({}, db), url, guard());
@@ -225,7 +225,7 @@ test("POST /mcp/:id rejects an unknown tool name", async () => {
   assert.equal(res?.status, 400);
 });
 
-test("GET /dashboard/billing links both Pro and the deep report to internal checkout redirects, not the raw Paddle URL", async () => {
+test("GET /dashboard/billing renders live Paddle.js checkout buttons for Pro and the deep report when the client token is set", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   const { token } = await setupUserWithStore(app, "free");
@@ -233,15 +233,17 @@ test("GET /dashboard/billing links both Pro and the deep report to internal chec
     headers: { cookie: `arw_session=${token}` },
   });
   const url = new URL(request.url);
-  const testEnv = env({ PADDLE_PRICE_PRO: "pri_pro_fixture", PADDLE_PRICE_REPORT: "pri_report_fixture" }, db);
+  const testEnv = env({ PADDLE_CLIENT_TOKEN: "live_fixture", PADDLE_PRICE_PRO: "pri_pro_fixture", PADDLE_PRICE_REPORT: "pri_report_fixture" }, db);
   const res = await handleAppRequest(request, testEnv, url, guard());
   const html = await res!.text();
-  assert.match(html, /href="\/dashboard\/billing\/checkout\/pro"/);
-  assert.match(html, /href="\/dashboard\/billing\/checkout\/report"/);
+  assert.match(html, /id="paddle-pro-btn"/);
+  assert.match(html, /id="paddle-report-btn"/);
+  assert.doesNotMatch(html, /disabled title="Payments are being set up/);
   assert.doesNotMatch(html, /pay\.paddle\.com/);
+  assert.match(html, /cdn\.paddle\.com\/paddle\/v2\/paddle\.js/);
 });
 
-test("GET /dashboard/billing falls back to a mailto for the deep report when no Paddle price is configured", async () => {
+test("GET /dashboard/billing falls back to a disabled 'Coming soon' button for the deep report when no Paddle client token is configured", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   const { token } = await setupUserWithStore(app, "free");
@@ -250,34 +252,37 @@ test("GET /dashboard/billing falls back to a mailto for the deep report when no 
   });
   const res = await handleAppRequest(request, env({}, db), new URL(request.url), guard());
   const html = await res!.text();
-  assert.match(html, /href="mailto:hello@utilityhouse\.xyz\?subject=Deep%20report%20request"/);
+  assert.match(html, /Commerce Readiness Packet — \$9<\/button>/);
+  assert.match(html, /disabled title="Payments are being set up/);
+  assert.doesNotMatch(html, /cdn\.paddle\.com/);
 });
 
-test("GET /dashboard/billing/checkout/pro records checkout_started and redirects to Paddle", async () => {
+test("POST /dashboard/billing/checkout-started records checkout_started for a valid plan", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   const { token } = await setupUserWithStore(app, "free");
-  const request = new Request("https://worker.example.com/dashboard/billing/checkout/pro", {
-    headers: { cookie: `arw_session=${token}` },
+  const request = new Request("https://worker.example.com/dashboard/billing/checkout-started", {
+    method: "POST", headers: { cookie: `arw_session=${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ plan: "pro" }),
   });
-  const testEnv = env({ PADDLE_PRICE_PRO: "pri_pro_fixture" }, db);
+  const testEnv = env({ PADDLE_CLIENT_TOKEN: "live_fixture", PADDLE_PRICE_PRO: "pri_pro_fixture" }, db);
   const res = await handleAppRequest(request, testEnv, new URL(request.url), guard());
-  assert.equal(res?.status, 302);
-  assert.equal(res?.headers.get("location"), "https://pay.paddle.com/checkout/pri_pro_fixture");
+  assert.equal(res?.status, 204);
   const summary = await app.funnelSummary(0);
   const started = summary.find(r => r.kind === "checkout_started");
   assert.equal(started?.count, 1);
 });
 
-test("checkout redirect 404s (and logs nothing) when the plan's Paddle price isn't configured", async () => {
+test("POST /dashboard/billing/checkout-started ignores an invalid plan (no funnel row, no crash)", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
   const { token } = await setupUserWithStore(app, "free");
-  const request = new Request("https://worker.example.com/dashboard/billing/checkout/agency", {
-    headers: { cookie: `arw_session=${token}` },
+  const request = new Request("https://worker.example.com/dashboard/billing/checkout-started", {
+    method: "POST", headers: { cookie: `arw_session=${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ plan: "nonsense" }),
   });
   const res = await handleAppRequest(request, env({}, db), new URL(request.url), guard());
-  assert.equal(res?.status, 404);
+  assert.equal(res?.status, 204);
   const summary = await app.funnelSummary(0);
   assert.equal(summary.find(r => r.kind === "checkout_started")?.count, 0);
 });
@@ -331,7 +336,9 @@ test("GET /ops/funnel rejects a missing or wrong bearer token", async () => {
 test("GET /ops/funnel returns the funnel counts with a valid bearer token", async () => {
   const { db } = sqliteD1();
   const app = new AppStore(db);
-  await app.recordFunnelEvent({ kind: "scan_completed" });
+  // A real scan always records its outcome; a bare event is an unclassifiable
+  // legacy row and is deliberately not counted as an answered scan.
+  await app.recordFunnelEvent({ kind: "scan_completed", meta: { score: 61, state: "SCORED" } });
   await app.recordFunnelEvent({ kind: "checkout_started", plan: "pro" });
   const token = "b".repeat(40);
   const testEnv = env({ OPS_TOKEN: token }, db);
@@ -371,6 +378,48 @@ test("GET /dashboard/store/:id (edit) also shows the authenticated nav", async (
   const html = await res!.text();
   assert.match(html, new RegExp(EMAIL.replace(".", "\\.")));
   assert.match(html, /Log out/);
+});
+
+test("Release Gate setup is owner-scoped, no-store, and keeps keys out of the initial page", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  const { token } = await setupUserWithEditableStore(app);
+  const url = new URL(`https://worker.example.com/dashboard/store/${EDIT_STORE_ID}/release-gate`);
+  const initial = await handleAppRequest(new Request(url, { headers: { cookie: `arw_session=${token}` } }), env({}, db), url, guard());
+  assert.equal(initial?.status, 200);
+  assert.equal(initial?.headers.get("cache-control"), "no-store");
+  const initialHtml = await initial!.text();
+  assert.match(initialHtml, /Four small steps/);
+  assert.match(initialHtml, /Download plugin/);
+  assert.match(initialHtml, /Signed evidence/);
+  assert.doesNotMatch(initialHtml, /Connection bundle<\/strong>/);
+
+  const opened = await handleAppRequest(new Request(url, {
+    method: "POST",
+    headers: { cookie: `arw_session=${token}`, origin: "https://worker.example.com" },
+  }), env({ RELEASE_GATE_OWNERSHIP_SECRET: "ownership-root", RELEASE_EVIDENCE_CURRENT_KEY: "evidence-root" }, db), url, guard());
+  assert.equal(opened?.status, 200);
+  assert.equal(opened?.headers.get("cache-control"), "no-store");
+  const openedHtml = await opened!.text();
+  assert.match(openedHtml, /Connection bundle<\/strong>/);
+  assert.match(openedHtml, new RegExp(EDIT_STORE_ID));
+  assert.equal((openedHtml.match(/type="password"/g) ?? []).length, 2);
+  assert.ok((openedHtml.match(/[a-f0-9]{64}/g) ?? []).length >= 2);
+  const stored = JSON.stringify(await app.getStore(EDIT_STORE_ID));
+  for (const key of openedHtml.match(/[a-f0-9]{64}/g) ?? []) assert.doesNotMatch(stored, new RegExp(key));
+});
+
+test("Release Gate setup fails closed when connection roots are unavailable", async () => {
+  const { db } = sqliteD1();
+  const app = new AppStore(db);
+  const { token } = await setupUserWithEditableStore(app);
+  const url = new URL(`https://worker.example.com/dashboard/store/${EDIT_STORE_ID}/release-gate`);
+  const response = await handleAppRequest(new Request(url, {
+    method: "POST",
+    headers: { cookie: `arw_session=${token}`, origin: "https://worker.example.com" },
+  }), env({}, db), url, guard());
+  assert.equal(response?.status, 503);
+  assert.match(await response!.text(), /temporarily unavailable/);
 });
 
 test("editing a store's name without re-entering the secret keeps the original secret", async () => {
@@ -616,10 +665,16 @@ test("POST /dashboard/account/email changes the email on success", async () => {
   assert.equal(user?.email, "new-address@example.com");
 });
 
-test("POST /dashboard/account/delete cascades: sessions, stores, and the user row are gone", async () => {
-  const { db } = sqliteD1();
+test("POST /dashboard/account/delete cascades: sessions, stores, Release Gate linkage, and the user row are gone", async () => {
+  const { db, raw } = sqliteD1();
   const app = new AppStore(db);
   const { token } = await setupUserWithEditableStore(app);
+  const now = Date.now();
+  await app.createReleaseChallenge("challenge_delete", EDIT_STORE_ID, "u1", "a".repeat(64), now + 60_000);
+  await app.createReleaseApiToken({ id: "token_delete", accountId: "u1", tokenDigest: "b".repeat(64), name: "delete test", scopes: ["release:read"], storeId: EDIT_STORE_ID, createdAt: now, expiresAt: null, revokedAt: null });
+  await app.blockReleaseApiToken("token_delete", "TEST_BLOCK");
+  await app.recordPluginEvidence("receipt_delete", EDIT_STORE_ID, "u1", "nonce_delete_0001", "c".repeat(64), "{}", now + 60_000, now);
+  await app.createOrGetReleaseRun({ id: "run_delete", accountId: "u1", storeId: EDIT_STORE_ID, mode: "owned-safe-active", requestedFamiliesJson: '["woo"]', baselineRunId: null, idempotencyKey: "delete_test_key_0001", state: "QUEUED", bundleDigest: "d".repeat(64) });
   // setupUserWithEditableStore doesn't hash a real password — set one the
   // confirmation check can actually verify against.
   await app.updateUserPassword("u1", await hashPassword(REAL_PASSWORD));
@@ -633,6 +688,9 @@ test("POST /dashboard/account/delete cascades: sessions, stores, and the user ro
   assert.equal(res?.headers.get("location"), "/login");
   assert.equal(await app.getUser("u1"), null);
   assert.equal(await app.getStore(EDIT_STORE_ID), null);
+  for (const table of ["release_gate_ownership_challenges", "release_gate_runs", "release_gate_evidence_commits", "release_gate_active_evidence", "release_gate_evidence_order", "release_gate_api_tokens", "release_gate_token_blocks"]) {
+    assert.equal((raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n, 0, `${table} retained deleted-account linkage`);
+  }
 });
 
 // --- operator admin panel -----------------------------------------------

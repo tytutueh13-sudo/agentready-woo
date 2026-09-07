@@ -206,7 +206,7 @@ test("Deep Report purchase with no store connected emails a graceful fallback", 
   assert.match(sent[0].html, /don't have a store connected/);
 });
 
-test("Deep Report includes an AI content review section when OPENAI_API_KEY is configured", async () => {
+test("Commerce Readiness Packet includes AI-assisted copy drafts when Workers AI is available", async () => {
   const { app } = await setup();
   await app.saveScan({
     id: "scan2", storeUrl: "https://northwind.example.com", score: 70,
@@ -220,32 +220,29 @@ test("Deep Report includes an AI content review section when OPENAI_API_KEY is c
   const originalFetch = globalThis.fetch;
   const emailsSent: { to: string; subject: string; html: string }[] = [];
   globalThis.fetch = (async (input, init) => {
-    const url = String(input);
-    if (url.includes("api.openai.com")) {
-      return new Response(JSON.stringify({
-        choices: [{ message: { content: JSON.stringify({
-          summary: "The description is too thin for an agent to use.",
-          suggestions: [{ title: "Wool Cap", rewrite: "A warm merino wool cap." }],
-        }) } }],
-      }), { status: 200 });
-    }
     emailsSent.push(JSON.parse(String((init as RequestInit).body)));
     return new Response("{}", { status: 200 });
   }) as typeof fetch;
   try {
     const body = transactionEvent(EMAIL, "pri_01fixturereport");
-    const res = await handlePaddleWebhook(webhookRequest(body, await sign(body)), { ...REPORT_ENV, OPENAI_API_KEY: "sk-fixture" }, app);
+    const res = await handlePaddleWebhook(webhookRequest(body, await sign(body)), {
+      ...REPORT_ENV,
+      AI: { run: async () => ({ response: JSON.stringify({
+        summary: "The description is too thin for an agent to use.",
+        suggestions: [{ title: "Wool Cap", rewrite: "A warm merino wool cap." }],
+      }) }) },
+    }, app);
     assert.equal(res.status, 200);
   } finally {
     globalThis.fetch = originalFetch;
   }
   assert.equal(emailsSent.length, 1);
-  assert.match(emailsSent[0].html, /AI content review/);
+  assert.match(emailsSent[0].html, /AI-assisted copy drafts/);
   assert.match(emailsSent[0].html, /too thin for an agent to use/);
   assert.match(emailsSent[0].html, /A warm merino wool cap/);
 });
 
-test("Deep Report omits the AI content review section when OPENAI_API_KEY is not configured", async () => {
+test("Commerce Readiness Packet discloses unavailable AI drafts without blocking delivery", async () => {
   const { app } = await setup();
   await app.saveScan({
     id: "scan3", storeUrl: "https://northwind.example.com", score: 70,
@@ -269,7 +266,7 @@ test("Deep Report omits the AI content review section when OPENAI_API_KEY is not
     globalThis.fetch = originalFetch;
   }
   assert.equal(emailsSent.length, 1);
-  assert.doesNotMatch(emailsSent[0].html, /AI content review/);
+  assert.match(emailsSent[0].html, /AI-assisted copy drafts were unavailable/);
 });
 
 // --- Pro is now a one-time "catalog unlock" purchase, not a subscription ---

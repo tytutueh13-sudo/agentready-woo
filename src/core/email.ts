@@ -64,7 +64,7 @@ export interface DeepReportScan {
   recommendations: string[];
 }
 
-/** The $9 Deep Report's actual deliverable — built from the same scan data
+/** The $9 Commerce Readiness Packet's actual deliverable — built from the same scan data
  * the free scan already produced, just formatted as the "prioritized fix
  * list" the pricing page promises. Failing checks first, worst-weighted
  * first, so the top of the email is the highest-impact fix. */
@@ -82,15 +82,16 @@ export function deepReportEmailHtml(scan: DeepReportScan, aiJudge?: DeepReportAi
   const recRows = scan.recommendations.length
     ? `<ul style="padding-left:20px;color:#55515E">${scan.recommendations.map(r => `<li style="margin-bottom:6px">${escapeHtml(r)}</li>`).join("")}</ul>`
     : "";
-  // Deliberately labeled "AI content review," never "tested in ChatGPT" —
-  // this is a model judging your existing product text, not a live query
-  // against a real AI shopping assistant. See core/aiJudge.ts.
+  // These are optional drafts from the merchant's own sanitized product copy,
+  // never evidence that an external AI agent has discovered or recommended a
+  // store. See core/aiJudge.ts.
   const aiSection = aiJudge ? `
-<h2 style="font-size:16px;margin-top:28px">AI content review</h2>
+<h2 style="font-size:16px;margin-top:28px">AI-assisted copy drafts</h2>
 <p style="color:#55515E">${escapeHtml(aiJudge.summary)}</p>
-${aiJudge.suggestions.length ? `<table style="width:100%;border-collapse:collapse;font-size:14px">${aiJudge.suggestions.map(s => `<tr><td style="padding:10px 12px;border-bottom:1px solid #E5E2DB"><strong>${escapeHtml(s.title)}</strong><br><span style="color:#55515E;font-size:13px">Try: ${escapeHtml(s.rewrite)}</span></td></tr>`).join("")}</table>` : ""}` : "";
+${aiJudge.suggestions.length ? `<table style="width:100%;border-collapse:collapse;font-size:14px">${aiJudge.suggestions.map(s => `<tr><td style="padding:10px 12px;border-bottom:1px solid #E5E2DB"><strong>${escapeHtml(s.title)}</strong><br><span style="color:#55515E;font-size:13px">Draft — review before publishing: ${escapeHtml(s.rewrite)}</span></td></tr>`).join("")}</table>` : ""}` : `
+<p style="color:#55515E;font-size:13px;margin-top:28px">AI-assisted copy drafts were unavailable for this run. Your deterministic evidence packet is complete.</p>`;
   return `<!doctype html><html><body style="font-family:sans-serif;color:#17151C;background:#FAF9F5;padding:32px;max-width:640px;margin:0 auto">
-<h1 style="font-size:20px">Your AgentReady deep report</h1>
+<h1 style="font-size:20px">Your AgentReady Commerce Readiness Packet</h1>
 <p style="color:#55515E">${escapeHtml(scan.storeUrl)} · ${scan.productCount} products · scanned readiness grade: <strong>${escapeHtml(scan.grade)}</strong> (${scan.score}/100)</p>
 <h2 style="font-size:16px;margin-top:28px">Prioritized fix list — ${failing.length} gap${failing.length === 1 ? "" : "s"}</h2>
 <table style="width:100%;border-collapse:collapse;font-size:14px">${fixRows}</table>

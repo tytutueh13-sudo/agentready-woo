@@ -1,0 +1,1 @@
+{"release":"2026-04-17","required":["profile-schema","feed-schema","non-payment-state"],"unsupported":["payment-authorization","partner-conformance"]}

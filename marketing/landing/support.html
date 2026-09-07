@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support — AgentReady Woo</title>
+<meta name="description" content="How to reach AgentReady Woo support, what to include, and what never to send.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+:root{--paper:#FAF9F5;--ink:#17151C;--ink2:#55515E;--ink3:#747079;--line:#E5E2DB;--acc:#E4572E;
+--serif:'Fraunces',serif;--sans:'Spline Sans',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+header{border-bottom:1px solid var(--line)}
+header .in{max-width:860px;margin:0 auto;padding:20px 32px;display:flex;justify-content:space-between;align-items:center}
+.logo{display:flex;align-items:baseline;gap:8px;font-weight:600;text-decoration:none;color:var(--ink)}
+.logo .mark{font-family:var(--serif);font-style:italic;font-weight:600}
+header nav a{color:var(--ink2);text-decoration:none;font-size:14px;margin-left:18px}
+header nav a:hover{color:var(--ink)}
+main{max-width:860px;margin:0 auto;padding:56px 32px 80px}
+h1{font-family:var(--serif);font-weight:500;font-size:clamp(30px,4vw,42px);letter-spacing:-.01em}
+.updated{font-family:var(--mono);font-size:12px;color:var(--ink3);margin-top:10px;letter-spacing:.06em;text-transform:uppercase}
+h2{font-family:var(--serif);font-weight:500;font-size:22px;margin:40px 0 12px}
+p,li{color:var(--ink2);margin-bottom:10px}
+ul{padding-left:22px;margin-bottom:14px}
+strong{color:var(--ink)}
+footer{border-top:1px solid var(--line);margin-top:40px}
+footer .in{max-width:860px;margin:0 auto;padding:26px 32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13.5px;color:var(--ink3)}
+footer a{color:var(--ink2);text-decoration:none;margin-left:16px}
+footer a:hover{color:var(--acc-dark)}
+
+.note{border-left:3px solid var(--acc);padding:2px 0 2px 14px;margin:18px 0}
+.note p{margin:0}
+dl.pairs{margin:14px 0}
+dl.pairs dt{font-family:var(--mono);font-size:12.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:14px}
+dl.pairs dd{margin:4px 0 0;color:var(--ink2)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2)}
+th{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);white-space:nowrap}
+/* #E4572E is 3.5:1 on this paper — below AA for body text. The accent stays
+   the brand colour for fills; link text uses the darker one at 4.89:1. */
+a{color:#C43F1B}
+a:hover{color:#9C3411}
+a:focus-visible,nav a:focus-visible,footer a:focus-visible{outline:2px solid #C43F1B;outline-offset:3px}
+.note{border-left-color:#C43F1B}
+/* a wide table must scroll inside itself, not push the page sideways */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{min-width:min(100%,520px)}
+@media (max-width:520px){main{padding-left:20px;padding-right:20px}}
+/* four nav items do not fit 390px on one line; let the header wrap instead of
+   pushing the document sideways */
+header .in{flex-wrap:wrap;row-gap:8px}
+header nav{display:flex;flex-wrap:wrap;gap:0 16px}
+header nav a{margin-left:0}
+footer .in{flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <a class="logo" href="/"><span class="mark">AgentReady</span> <span>/ Woo</span></a>
+  <nav><a href="/support">Support</a><a href="/security">Security</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+</div></header>
+
+<main>
+<h1>Support</h1>
+<p class="updated">Last updated · September 7, 2026</p>
+
+<p>One address, and it is already the one on our privacy, terms and refund
+pages: <strong>hello@utilityhouse.xyz</strong>.</p>
+
+<div class="note"><p>We do not publish a response time, because we have not
+measured one. Saying &ldquo;within 24 hours&rdquo; when nobody has checked is a
+promise, not a service.</p></div>
+
+<h2>What to include</h2>
+<p>Almost everything we need is in the result you already have.</p>
+<dl class="pairs">
+<dt>Store origin</dt><dd>The public origin you ran the check against, for example <code>https://shop.example.com</code>.</dd>
+<dt>What you ran</dt><dd>The free preflight, the MCP tool name, or the Release Gate.</dd>
+<dt>The result</dt><dd>The whole JSON body if you have it &mdash; especially <code>state</code>, <code>unknowns</code> and any <code>reasonCode</code>.</dd>
+<dt>observed_at</dt><dd>The timestamp in the result. It tells us which run you mean.</dd>
+<dt>What you expected</dt><dd>One sentence. This is usually the most useful line in the message.</dd>
+</dl>
+
+<h2>What never to send</h2>
+<p>We do not need any of these, and we would rather not receive them:</p>
+<ul>
+<li>WooCommerce consumer keys or secrets, API tokens, or passwords &mdash; if you have already pasted one anywhere, revoke it in your WordPress admin first;</li>
+<li>customer names, email addresses, orders, invoices or payment details;</li>
+<li>database dumps, full server logs or screenshots containing any of the above;</li>
+<li>anything from a store you do not operate.</li>
+</ul>
+<p>If a message arrives containing credentials, we will ask you to revoke them
+and we will not use them.</p>
+
+<h2>Common answers, before you write</h2>
+<div class="scroll"><table>
+<tr><th>What you saw</th><th>What it means</th></tr>
+<tr><td><code>state: "BLOCKED"</code> with HTTP 200</td><td>The check reached your store and could not read it. That is an abstention, not a verdict about your store. <code>unknowns</code> says why.</td></tr>
+<tr><td><code>429 TARGET_RATE_LIMITED</code></td><td>The daily budget for that store origin (3/day) or your address (10/day) is spent. Try tomorrow.</td></tr>
+<tr><td><code>400 UNKNOWN_PROPERTY</code></td><td>The request body carried a field we do not accept. We reject rather than ignore it, so a typo never looks like an answer.</td></tr>
+<tr><td><code>AUTH_REQUIRED</code> from a Release Gate tool</td><td>Those three tools need a bearer token and a verified ownership record. The public tools do not.</td></tr>
+<tr><td>A price on the Release Gate</td><td>It is a beta price and not available for purchase. Settlement is disabled.</td></tr>
+</table></div>
+
+<h2>Reporting a security issue</h2>
+<p>Use the <a href="/security">security page</a>, not this one.</p>
+
+<h2>Service state</h2>
+<p>Live state is at <a href="/status">/status</a>. Data handling is on the
+<a href="/privacy">privacy page</a>; service terms are on the
+<a href="/terms">terms page</a>.</p>
+
+</main>
+
+<footer><div class="in">
+  <span>&copy; 2026 AgentReady — a UtilityHouse product</span>
+  <span><a href="/support">Support</a> &middot; <a href="/security">Security</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/refund-policy">Refund Policy</a></span>
+</div></footer>
+</body>
+</html>

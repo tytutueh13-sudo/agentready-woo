@@ -2,7 +2,7 @@
 
 > AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from. Checkout completes on the merchant's own site via signed cart handoff — no card data ever passes through AgentReady.
 
-A free scan grades any WooCommerce store's agent-readiness out of 100: discovery files, Store API health, feed quality, cart-handoff support. Merchants fix the reported gaps, then expose their catalog to shopping agents including ChatGPT shopping surfaces, Claude, and independent agents. Product feeds re-sync from the store every 15 minutes — price and stock stay live.
+A free scan grades any WooCommerce store's agent-readiness out of 100: discovery files, Store API health, feed quality, cart-handoff support. Merchants fix the reported gaps, then expose their catalog to shopping agents including ChatGPT shopping surfaces, Claude, and independent agents. Feeds are read from the store on every request, so price and stock are the store's current values rather than a cached copy.
 
 ## Pages
 
@@ -13,14 +13,31 @@ A free scan grades any WooCommerce store's agent-readiness out of 100: discovery
 
 ## Pricing
 
-- **Free** — forever: readiness score, top-10 product feed
-- **Deep Report** — $9 one-off: full gap report, competitor comparison, shareable badge
-- **Pro** — $99 once: unlimited offers, signed cart handoff, weekly agent-activity email — no renewal
-- **Agency** — $199/year: 25 client stores, priority support
+- **Free** — forever: readiness score, top-25 product feed
+- **Commerce Readiness Packet** — $9 one-off: observed readiness gaps ordered by impact, concrete next steps, and optional AI-assisted copy drafts from filtered product text. It is saved in the buyer's account and delivered by email after a scan. AI drafts are not a claim that an external shopping agent tested or recommended the store.
+- **Pro** — $49 once: unlimited offers, signed cart handoff, weekly agent-activity email — no renewal
+- **Agency** — $99/year: 25 client stores, priority support
 
 ## For agents and developers
 
-- MCP endpoint: `https://app.utilityhouse.xyz/mcp/{store_id}` (Model Context Protocol) — `POST {"tool": "...", "input": {...}}`
+- MCP server: `https://app.utilityhouse.xyz/mcp/{store_id}` — a Model Context Protocol server speaking JSON-RPC 2.0 (initialize, tools/list, tools/call, ping). Four tools; every input schema comes back from tools/list. A refusal the plan causes (a product outside the free catalogue window) answers with isError and an explanation, not a protocol error.
+- Endpoint description: `GET https://app.utilityhouse.xyz/mcp/{store_id}/discovery` — an Agentic Commerce Protocol discovery document naming the version, the transport, and the services this seller actually implements.
+
+## Agentic Commerce Protocol
+
+The store's MCP server implements the quote half of ACP 2026-04-17, under the specification's own tool names and its `{meta, id, payload}` argument shape:
+
+- `create_checkout_session` — price a basket against this store: line items, the store's own tax, its shipping options, and the landed total in minor currency units. This is the number an agent cannot work out from a catalogue, because tax rules and shipping rates live inside the store.
+- `update_checkout_session` — add items, set or change the shipping address, or choose one of the returned `fulfillment_options` by id. Choosing an option is what moves shipping into the total.
+- `get_checkout_session` — re-read a session. Prices are recomputed by the store on every read, so a quote is current rather than remembered.
+
+Two ACP operations are deliberately not offered, and the discovery document says so rather than failing at call time:
+
+- `complete_checkout_session` — no payment is taken here. Sessions stay at status `not_ready_for_payment` and carry `continue_url`, where the buyer completes the purchase on the merchant's own store through the gateway it already runs.
+- `cancel_checkout_session` — there is nothing to cancel, because nothing is held. `quote_id` and `quote_expires_at` are never set: those are ACP's way of saying stock is reserved, and WooCommerce reserves stock only through a PHP path with no REST route.
+
+A shipping option's delivery estimate is passed through as text when the store provides one. ACP's `earliest_delivery_time` / `latest_delivery_time` are left unset rather than guessed from it — a wrong delivery date is worse than none, because the buyer plans around it.
+- The same URL still accepts the older non-protocol shape it began with: `POST {"tool": "...", "input": {...}}`
 - Per-store agent discovery file + JSON product feed (price, stock, categories, sale prices)
 - Cart handoff: HMAC-signed, single-use links expiring in ≤60 minutes; buyer completes checkout on the merchant's own site
 - Auth: merchant-issued read-only WooCommerce REST API key, revocable in one click

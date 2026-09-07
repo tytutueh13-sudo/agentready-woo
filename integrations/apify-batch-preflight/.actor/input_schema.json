@@ -1,0 +1,28 @@
+{
+  "title": "WooCommerce Release Preflight — batch",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "store_origins": {
+      "title": "Store origins",
+      "type": "array",
+      "description": "Public HTTPS origins, one per line, for example https://shop.example.com. Origins only: a path, a query string or credentials in the URL are refused before any request is made. Duplicates are asked once.",
+      "editor": "stringList",
+      "prefill": ["https://shop.example.com"]
+    },
+    "requested_families": {
+      "title": "Surface families to check",
+      "type": "array",
+      "description": "Leave empty for the server's default set.",
+      "editor": "select",
+      "items": { "type": "string", "enum": ["woo", "robots", "jsonld", "mcp", "ucp", "acp"] }
+    },
+    "concurrency": {
+      "title": "Concurrent requests",
+      "type": "integer",
+      "description": "Deliberately small. The upstream preflight is rate limited per origin and per caller IP, and a bigger number returns rate-limit rows, not faster answers.",
+      "default": 2, "minimum": 1, "maximum": 4
+    }
+  },
+  "required": ["store_origins"]
+}

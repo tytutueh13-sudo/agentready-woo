@@ -1,59 +1,68 @@
-# AgentReady Woo — agentic-commerce readiness toolkit for self-hosted WooCommerce stores
+# AgentReady Woo — agentic-commerce readiness for self-hosted WooCommerce
 
 Live at **[app.utilityhouse.xyz](https://app.utilityhouse.xyz)**.
 
-AgentReady scans a self-hosted WooCommerce store and scores how ready it is for
-AI-agent commerce (MCP/A2A), then exposes the live catalog through a product
-feed and an MCP tool surface that shopping agents can query and buy from.
-Checkout always completes on the merchant's own site through a signed,
-time-limited cart handoff — no card data ever passes through AgentReady.
+AgentReady reads a public WooCommerce storefront the way a shopping agent would
+and reports what it found. It reads public pages and the public WooCommerce
+Store API. It changes nothing, stores no customer data, and returns no product
+text.
 
-Connect a store by pasting its URL and a read-only WooCommerce REST API key
-generated in the merchant's own WordPress admin (Settings → Advanced → REST
-API). No plugin install required. The key is revocable in one click and
-AgentReady never writes to the store — read-only catalog access only.
+**When it cannot read a store, it says so.** A shop that is down, blocked or not
+yet public comes back as `state: UNREADABLE` with `score: null` — an abstention,
+not a low grade. That distinction is the point of the product: a number derived
+from our own failed requests is a number a merchant would act on.
 
-## What it does
+Diagnostic accuracy against real merchant stores is **unmeasured** and is
+claimed nowhere. This is not a certification, a visibility guarantee, or a
+checkout test.
 
-- **Free readiness scan** — grades any WooCommerce store out of 100: discovery
-  files, Store API health, feed quality, cart-handoff support.
-- **Live product feed** — re-synced from the store on a schedule; price and
-  stock stay current.
-- **Agent discovery file** — `/.well-known/agenticweb.md` per connected store,
-  so agents can find what a store's feed supports before calling it.
-- **MCP tool surface** — agents call `search_products`, `get_offer`,
-  `get_feed`, `create_cart_link`, and `verify_cart_link` against a store's
-  live catalog.
-- **Signed cart handoff** — HMAC-signed, single-use add-to-cart links that
-  expire in ≤60 minutes; the buyer completes checkout on the merchant's own
-  site.
-- **Dashboard** — agent traffic and missed-opportunity visibility for the
-  merchant.
+## The five tools
 
-## MCP endpoints
+`POST /mcp` speaks **JSON-RPC 2.0**. `tools/list` returns five tools.
 
-This repo exposes two distinct MCP surfaces sharing one tool-call shape
-(`POST {tool, input}` — MCP-*shaped*, not the full JSON-RPC 2.0 protocol; see
-"Status" below):
+Two need no credentials at all:
 
-- **Per-store commerce tool** — `POST /mcp/{store_id}` — the five catalog
-  tools listed above, scoped to one connected merchant's live store.
-- **Readiness-scan tool** — `POST /mcp` — a single global, x402
-  payment-gated tool (`agentready_woo_agentic_commerce_readiness_toolkit_for_self_h`)
-  that scores any WooCommerce store's agent-readiness on demand.
+| Tool | What it answers |
+| --- | --- |
+| `scan_woo_store_readiness` | Is this public storefront readable by shopping agents? |
+| `preflight_woo_store` | The same question for one origin, passive and read-only. |
 
-## Status
+Three require the merchant's own verified ownership and are unreachable
+without it:
 
-Deployed and in production use, with a real Paddle billing integration and a
-D1-backed financial ledger for the x402-gated readiness-scan tool. Test
-suite (`npm test`) covers auth, billing webhooks, the readiness scanner, and
-the MCP tool surface.
+| Tool | What it does |
+| --- | --- |
+| `start_woo_release_verification` | Starts a release run against pinned protocol evidence. |
+| `get_woo_release_verification` | Reads that run's state. |
+| `claim_woo_release_result` | Claims the result packet once, idempotently. |
 
-The MCP tool-call shape is intentionally minimal — `{tool, input}` over
-JSON — rather than the full JSON-RPC 2.0 MCP protocol. Wiring the official
-`@modelcontextprotocol/sdk` framing is a tracked follow-up, not a blocker for
-current use (see `mcp-registry/server.json` for the registry-facing
-description).
+There is also `POST /api/v2/preflight`, documented in
+`mcp-registry/openapi-preflight.yaml` as an OpenAPI 3.1 document. A `200` from
+it does **not** mean the store could be read — check `state` before using
+`checks`.
+
+## Rate limits, as they are
+
+Three calls per target origin per day, and ten per calling IP per day.
+Exceeding either returns `429` with `TARGET_RATE_LIMITED`. These are the real
+numbers, not a friendlier pair.
+
+## Settlement
+
+**Settlement is disabled.** No route on this service can take money. Prices
+appear on the marketing page as prices for a thing that is not yet purchasable,
+and every place one is shown says so. The Paddle integration and the D1
+financial ledger exist and are exercised by the test suite; the flag that would
+let them move money is deliberately absent, and the x402 configuration points
+at Base **Sepolia** testnet.
+
+## The WordPress plugin
+
+`wordpress-plugin/agentready-woo` publishes `/.well-known/agenticweb.md` and,
+when a merchant connects it, sends one signed **aggregate** evidence envelope —
+a count and a check result, never a product, shopper, order, payment, address or
+credential. It is verified against real WordPress and WooCommerce with HPOS both
+on and off; see `wordpress-plugin/agentready-woo/INTEGRATION-HARNESS.md`.
 
 ## Local development
 
@@ -61,19 +70,16 @@ description).
 npm install
 npm run typecheck
 npm test
+npm run dev:worker
 ```
 
-## Deployment
+`npm test` uses Node's own test runner. There is no build step: the Worker runs
+TypeScript directly under Node 25 type-stripping, which is why parameter
+properties do not appear anywhere in `src/`.
 
-Cloudflare Workers, via `wrangler.toml` in this repo (D1 binding, custom
-domain routing, secrets documented inline as comments — secrets themselves
-are never committed, only set with `wrangler secret put`).
+## What this repository is not
 
-```bash
-npx wrangler deploy
-```
-
-## License
-
-Proprietary. Source is published here for MCP Registry / agent-discovery
-transparency; this is not an open-source license grant.
+It is a public mirror of one service from a private monorepo. It is not the
+deployment source, and `wrangler.toml` here carries a placeholder database id
+rather than the real one. Deploys are performed from the private repository by
+one operator; nothing in this repository deploys anything.

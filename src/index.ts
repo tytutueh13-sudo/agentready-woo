@@ -7,15 +7,50 @@ import { RevenueGuard } from "./core/guard.ts";
 import { X402PaymentProvider } from "./core/paymentProvider.ts";
 import type { RevenueGuardConfig } from "./core/pricing.ts";
 import { handleMcpCall, TOOL_NAME } from "./mcp.ts";
+import { handleJsonRpc, isJsonRpc } from "./core/mcpRpc.ts";
 import { handleApiCall, API_PATH } from "./api.ts";
+import { serviceErrorPage } from "./web.ts";
+import {
+  PUBLIC_SCAN_TOOL_DESCRIPTION, PUBLIC_SCAN_TOOL_NAME, publicScanMcpTool,
+} from "./publicScanMcp.ts";
 import { handleAppRequest, type AppEnv } from "./app.ts";
 import { buildAgenticWebMd, configFromEnv, configureService } from "./service.ts";
 import { AppStore } from "./core/appStore.ts";
 import { pingIndexNow } from "./core/indexnow.ts";
 import { sendEmail, weeklyDigestEmailHtml } from "./core/email.ts";
+import type { WorkersAiBinding } from "./core/aiJudge.ts";
+import { releaseGateMcpTools } from "./releaseGate/mcpTools.ts";
+import {
+  AGENTREADY_PUBLIC_NAME, AGENTREADY_SERVER_NAME, AGENTREADY_VERSION,
+} from "./productIdentity.ts";
+export { ReleaseGateAcceptanceWorkflow } from "./workflows/releaseGateWorkflow.ts";
 
 const PRODUCT_ID = "early-3426536d88daa242";
-const PRICE_PER_CALL = 0.05;
+// Public identity must never expose the durable internal product key used by
+// legacy D1 counters and financial-guard records.
+const PUBLIC_SERVICE_NAME = AGENTREADY_PUBLIC_NAME;
+/** The global readiness-scan tool, over MCP and over the REST shape alike.
+ *
+ * Zero, and that is the product working rather than a concession. The scan is
+ * how a merchant discovers they are not agent-ready — the homepage offers it
+ * free, and the paid tiers are what comes after. Charging for it over MCP
+ * meant the site and the code disagreed about the same thing.
+ *
+ * It was priced at $0.05 settled through x402 on `eip155:84532` — Base
+ * Sepolia. No agent holds testnet USDC, so every agent that found this tool
+ * was answered 402 against a currency it could not obtain: not a paywall, a
+ * closed door with a price list on it. Measured in production before this
+ * changed.
+ *
+ * The x402 rail stays wired and tested. Pointing it at a network where
+ * settlement is real is a configuration change, and the paid tiers of the
+ * per-store surface are gated by Paddle, which is where money actually
+ * arrives today.
+ */
+const PRICE_PER_CALL = 0;
+
+/** IndexNow's own trigger, so nothing has to pick a tick by reading the clock. */
+const DAILY_CRON = "0 3 * * *";
 
 // Section 37: bound request size before parsing the body. maxInputSizeBytes
 // comes from ProductSpec.security_policy — see product.json.
@@ -63,6 +98,9 @@ interface WorkerEnv {
   PADDLE_WEBHOOK_SECRET?: string;
   PADDLE_PRICE_REPORT?: string; PADDLE_PRICE_PRO?: string; PADDLE_PRICE_AGENCY?: string;
   RESEND_API_KEY?: string; EMAIL_FROM?: string;
+  RELEASE_GATE_OWNERSHIP_SECRET?: string;
+  RELEASE_GATE_WORKFLOW?: { create(input: { params: { runId: string } }): Promise<unknown> };
+  AI?: WorkersAiBinding;
 }
 
 /** One weekly email per user with a store connected, showing real agent-
@@ -106,8 +144,97 @@ async function registerPaymentProof(request: Request, reference: string | undefi
   } catch { return reference; /* malformed proof is rejected by authorization */ }
 }
 
+async function recordPublicScanOutcome(
+  appStore: AppStore, outcome: "success" | "refused" | "invalid",
+): Promise<void> {
+  try {
+    await appStore.recordPublicMcpCall(PUBLIC_SCAN_TOOL_NAME, outcome);
+  } catch (error) {
+    // Telemetry must never turn a free, read-only scan into a failed call.
+    console.error("public MCP usage aggregation failed", { error: String(error) });
+  }
+}
+
+function instrumentedPublicScanTool(appStore: AppStore) {
+  const tool = publicScanMcpTool();
+  return {
+    ...tool,
+    async run(args: Record<string, unknown>) {
+      const result = await tool.run(args);
+      await recordPublicScanOutcome(appStore, result.ok ? "success" : "refused");
+      return result;
+    },
+  };
+}
+
+/** Sent with every response this Worker writes.
+ *
+ * `public/_headers` MUST stay identical: Cloudflare serves a matching static
+ * asset directly and never invokes this Worker, so a wrapper here covers its
+ * own routes and nothing else. A difference between the two would mean a
+ * page's protection depended on which half answered it.
+ *
+ * The payment allowances are Paddle's, because that is the only third party
+ * this app hands a buyer to.
+ */
+const SECURITY_HEADERS: Record<string, string> = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "x-frame-options": "DENY",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "permissions-policy": "geolocation=(), microphone=(), camera=(), payment=(self \"https://checkout.paddle.com\")",
+  "content-security-policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.paddle.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self'",
+    "connect-src 'self' https://cdn.paddle.com https://checkout.paddle.com",
+    "frame-src https://checkout.paddle.com https://buy.paddle.com",
+    "form-action 'self' https://accounts.google.com",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join("; "),
+};
+
+/** Applied without overwriting: a route that has already decided on a
+ * narrower value for itself knows something this does not. */
+export function secured(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(name)) headers.set(name, value);
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+    // Every exit below goes through one wrapper. There are a dozen returns in
+    // this handler and each one would otherwise be a place to forget.
+    try {
+      return secured(await route(request, env));
+    } catch (error) {
+      // An unhandled throw used to reach the merchant as Cloudflare's own
+      // error page, which reads as "your store broke us". Say whose fault it
+      // is, in the product's own voice, and keep the API contract for
+      // non-browser callers.
+      console.error("unhandled request failure", { url: request.url, error: String(error) });
+      return secured(wantsHtml(request)
+        ? new Response(serviceErrorPage("upstream"), {
+            status: 500, headers: { "content-type": "text/html; charset=utf-8" } })
+        : new Response(JSON.stringify({ error: "internal error" }), {
+            status: 500, headers: { "content-type": "application/json" } }));
+    }
+  },
+  async scheduled(controller: ScheduledController, env: WorkerEnv, ctx: ExecutionContext): Promise<void> {
+    return scheduledRun(controller, env, ctx);
+  },
+};
+
+/** Everything the Worker answers, before the security headers go on. */
+async function route(request: Request, env: WorkerEnv): Promise<Response> {
     const url = new URL(request.url);
     if (!env.FINANCIAL_DB) {
       return new Response(JSON.stringify({ error: "durable financial store is not configured" }), {
@@ -124,12 +251,26 @@ export default {
         status: 503, headers: { "content-type": "application/json" },
       });
     }
+    // The AI budget ledger belongs to the merchant app schema, not the
+    // financial ledger above. Initializing it on the two readiness routes
+    // makes a green health check truthful and gives the aggregate-only
+    // operations guard a zero row to query before the first paid packet.
+    if (url.pathname === "/health" || url.pathname === "/status") {
+      try {
+        await new AppStore(env.FINANCIAL_DB).ensureSchema();
+      } catch {
+        return new Response(JSON.stringify({ error: "application schema is not ready" }), {
+          status: 503, headers: { "content-type": "application/json" },
+        });
+      }
+    }
     const paymentProvider = new X402PaymentProvider(env);
     const guard = new RevenueGuard(
       store, REVENUE_GUARD_CONFIG, paymentProvider,
       env as unknown as Record<string, string | undefined>,
     );
     configureService(env as unknown as Record<string, string | undefined>);
+    const appStore = new AppStore(env.FINANCIAL_DB);
 
     // Merchant app (accounts, stores, scan, dashboard, webhooks, per-store
     // agent surface). Returns null when the path is not an app route.
@@ -144,15 +285,15 @@ export default {
     }
 
     if (url.pathname === "/health") {
-      return new Response(JSON.stringify(health(PRODUCT_ID, "1.0.0",
+      return new Response(JSON.stringify(health(PUBLIC_SERVICE_NAME, AGENTREADY_VERSION,
         env as unknown as Record<string, string | undefined>)), {
         headers: { "content-type": "application/json" },
       });
     }
     if (url.pathname === "/status") {
       return new Response(JSON.stringify(status(
-        PRODUCT_ID, "1.0.0",
-        env as unknown as Record<string, string | undefined>,
+        PUBLIC_SERVICE_NAME, AGENTREADY_VERSION,
+        env as unknown as Record<string, string | undefined>, PRODUCT_ID,
       )), {
         headers: { "content-type": "application/json" },
       });
@@ -197,16 +338,43 @@ p{color:var(--ink2);margin-bottom:18px}
     if (url.pathname === "/mcp" && request.method === "POST") {
       const tooLarge = rejectIfTooLarge(request);
       if (tooLarge) return tooLarge;
-      const body = (await request.json()) as { tool: string; input: Record<string, unknown>; requestId?:string };
-      body.requestId=request.headers.get("Idempotency-Key")??body.requestId;
-      const paymentReference = await registerPaymentProof(request, (body as { paymentReference?: string }).paymentReference, paymentProvider);
-      (body as { paymentReference?: string }).paymentReference = paymentReference;
-      const result = await handleMcpCall(guard, body, PRICE_PER_CALL, PRODUCT_ID);
-      const httpStatus = result.stage === "payment" ? 402 : result.stage === "auth" ? 401 : result.error ? 400 : 200;
-      const { _paymentResponse, ...publicResult }=result;const headers:Record<string,string>={"content-type":"application/json"};
-      if(httpStatus===402&&result.x402Version===2)headers["PAYMENT-REQUIRED"]=encodeX402Header(paymentRequired(request.url,result.error??"payment required",result.accepts??[]));
-      if(_paymentResponse)headers["PAYMENT-RESPONSE"]=encodeX402Header(_paymentResponse);
-      return new Response(JSON.stringify(publicResult), { status:httpStatus, headers });
+      const raw = (await request.json()) as unknown;
+
+      // The root is the public, credential-free readiness scan. Store-bound
+      // catalogue and cart tools remain at /mcp/{store_id}; publishing those
+      // without a real tenant would advertise a tool no caller can use.
+      if (isJsonRpc(raw)) {
+        const reply = await handleJsonRpc(raw, {
+          // A name a person reads in a registry listing, not the internal
+          // product id — that reported itself as "early-3426536d88daa242".
+          name: AGENTREADY_SERVER_NAME, version: AGENTREADY_VERSION,
+          instructions: "Run a privacy-safe readiness scan against a public WooCommerce storefront. Store-bound shopping tools use /mcp/{store_id}.",
+        }, [
+          instrumentedPublicScanTool(appStore),
+          ...releaseGateMcpTools({}, { app: appStore, workflow: env.RELEASE_GATE_WORKFLOW }),
+        ], {
+          authorization: request.headers.get("authorization") ?? undefined,
+        });
+
+        if (reply === null) return new Response(null, { status: 202 });
+        return new Response(JSON.stringify(reply), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      const body = raw as { tool?: string; input?: Record<string, unknown> };
+      if (body.tool !== PUBLIC_SCAN_TOOL_NAME) {
+        await recordPublicScanOutcome(appStore, "invalid");
+        return new Response(JSON.stringify({ error: `unknown tool: ${String(body.tool ?? "(missing)")}` }), {
+          status: 400, headers: { "content-type": "application/json" },
+        });
+      }
+      const out = await publicScanMcpTool().run(body.input ?? {});
+      await recordPublicScanOutcome(appStore, out.ok ? "success" : "refused");
+      return new Response(out.text, {
+        status: out.ok ? 200 : 400, headers: { "content-type": "application/json" },
+      });
     }
     if (url.pathname === API_PATH && request.method === "POST") {
       const tooLarge = rejectIfTooLarge(request);
@@ -224,9 +392,20 @@ p{color:var(--ink2);margin-bottom:18px}
       });
     }
 
-    return new Response("not found", { status: 404 });
-  },
-  async scheduled(_controller: ScheduledController, env: WorkerEnv,
+    return wantsHtml(request)
+      ? new Response(serviceErrorPage("not_found"), {
+          status: 404, headers: { "content-type": "text/html; charset=utf-8" } })
+      : new Response("not found", { status: 404 });
+}
+
+/** A browser asks for HTML; curl, an agent and an MCP client do not. Only the
+ * former gets a page — an API caller that started receiving HTML on a 404
+ * would be a contract change. */
+function wantsHtml(request: Request): boolean {
+  return (request.headers.get("accept") ?? "").includes("text/html");
+}
+
+async function scheduledRun(controller: ScheduledController, env: WorkerEnv,
     ctx: ExecutionContext): Promise<void> {
     if (!env.FINANCIAL_DB) return;
     const store = new D1FinancialStore(env.FINANCIAL_DB);
@@ -240,10 +419,13 @@ p{color:var(--ink2);margin-bottom:18px}
       env as unknown as Record<string, string | undefined>,
     );
     ctx.waitUntil((async () => {
-      // H-01: each phase is independent. A failure in one must not skip the
-      // rest of the sweep — in particular it must not skip the purge, or
-      // expired escrow payloads and payment proofs would be retained.
-      const phases: [string, () => Promise<unknown>][] = [
+      // Which trigger fired decides what runs. A phase that reads the clock
+      // to decide for itself is a second schedule hiding inside the first,
+      // and that is how the daily ping used to disappear: it required
+      // `hour === 3 && minute < 5`, so an invocation that started a few
+      // minutes late threw the whole day away in silence. The identical
+      // guard cost WP Update Radar entire sweeps before it was found.
+      const frequent: [string, () => Promise<unknown>][] = [
         // Only pre-upstream reservations can expire automatically. Existing
         // settlement obligations remain recoverable even while kill is active.
         ["expire_safe_reservations", () => store.recoverExpiredSafeReservations(Date.now() - 15 * 60 * 1000)],
@@ -255,25 +437,24 @@ p{color:var(--ink2);margin-bottom:18px}
         // Released result payloads and expired payment proofs are physically
         // removed only after recovery has had a chance to inspect obligations.
         ["purge_expired", () => store.purgeExpiredSensitiveData(Date.now())],
-        // Not financial housekeeping — piggybacks on the same 5-minute
-        // trigger since Cloudflare cron only supports one schedule per
-        // trigger string here, and usersDueForDigest already makes this
-        // safe to check every 5 minutes without double-sending.
+        // Safe on every tick: usersDueForDigest is what stops a double-send,
+        // not the schedule.
         ["send_weekly_digests", () => sendWeeklyDigests(store, new AppStore(env.FINANCIAL_DB!), env)],
-        // Also piggybacks on the 5-minute trigger, self-paced to once a day
-        // by only running in the first tick of hour 3 UTC — IndexNow has no
-        // per-URL rate limit that matters at this site's size, but there's
-        // no reason to hit it every 5 minutes when the sitemap rarely changes.
-        ["ping_indexnow", () => {
-          const now = new Date();
-          if (now.getUTCHours() !== 3 || now.getUTCMinutes() >= 5) return Promise.resolve();
-          return pingIndexNow((env.PUBLIC_BASE_URL ?? "").replace(/\/+$/, ""));
-        }],
       ];
+      const daily: [string, () => Promise<unknown>][] = [
+        // IndexNow has no per-URL rate limit that matters at this site's
+        // size, but there is no reason to hit it every five minutes when the
+        // sitemap rarely changes — and no reason to pick the moment by hand
+        // when a cron expression can.
+        ["ping_indexnow", () => pingIndexNow((env.PUBLIC_BASE_URL ?? "").replace(/\/+$/, ""))],
+      ];
+      // H-01: each phase is independent. A failure in one must not skip the
+      // rest of the sweep — in particular it must not skip the purge, or
+      // expired escrow payloads and payment proofs would be retained.
+      const phases = controller.cron === DAILY_CRON ? daily : frequent;
       for (const [name, run] of phases) {
         try { await run(); }
         catch (error) { console.error(`scheduled phase failed: ${name}`, error); }
       }
     })());
-  },
-};
+  }

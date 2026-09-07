@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "views": {
+    "overview": {
+      "title": "Preflight rows",
+      "transformation": { "fields": ["store_origin","outcome","state","reason","checks_passed","checks_total","unknowns","observed_at"] },
+      "display": { "component": "table" }
+    },
+    "triage": {
+      "title": "Needs a human",
+      "transformation": { "fields": ["store_origin","outcome","reason","unknowns"] },
+      "display": { "component": "table" }
+    }
+  }
+}

@@ -32,19 +32,53 @@ function fakeFetch(handler: (url: URL) => Response | Promise<Response>) {
 
 test("a well-configured store scores good with no blocking recommendations", async () => {
   const result = await scanStore(STORE, fakeFetch(healthyWooHandler));
-  assert.equal(result.score >= 80, true, `expected good, got ${result.score}`);
+  assert.equal((result.score ?? 0) >= 80, true, `expected good, got ${result.score}`);
   assert.equal(result.grade, "good");
   assert.ok(result.checks.every(c => typeof c.ok === "boolean"));
   const failed = result.checks.filter(c => !c.ok).map(c => c.id);
   assert.deepEqual(failed, [], `unexpected failures: ${failed.join(",")}`);
 });
 
-test("an unreachable store fails closed with a low score", async () => {
-  const result = await scanStore(STORE, fakeFetch(() => new Response("", { status: 0 })));
-  assert.equal(result.score < 50, true);
-  assert.equal(result.grade, "poor");
-  assert.ok(result.recommendations.length > 0);
-  assert.ok(result.checks.find(c => c.id === "https" && c.ok === true), "https check is about the URL, not reachability");
+// The scan used to answer this case with a number. A store that answered
+// nothing failed every check for the same reason and came back around 18/100,
+// grade "poor" — presented to the merchant as a finding about their shop, and
+// returned from the public MCP tool the same way. It is an abstention.
+test("a store that answers nothing produces an abstention, not a low score", async () => {
+  const result = await scanStore(STORE, fakeFetch(() => { throw new Error("ECONNREFUSED"); }));
+  assert.equal(result.state, "UNREADABLE");
+  assert.equal(result.score, null, "a score here would be a score of our own timeout");
+  assert.equal(result.grade, null);
+  assert.equal(result.unreadable?.reason, "TARGET_UNREACHABLE");
+  assert.match(result.unreadable?.detail ?? "", /nothing answered/);
+  assert.deepEqual(result.recommendations, [],
+    "advice derived from checks that only failed because nothing answered is advice about our timeouts");
+  assert.ok(result.checks.length > 0, "what was attempted is still recorded");
+});
+
+test("a store that answers an error status abstains with that status named", async () => {
+  const result = await scanStore(STORE, fakeFetch(() => new Response("maintenance", { status: 503 })));
+  assert.equal(result.state, "UNREADABLE");
+  assert.equal(result.score, null);
+  assert.equal(result.unreadable?.reason, "TARGET_UNREADABLE");
+  assert.match(result.unreadable?.detail ?? "", /503/);
+});
+
+test("one readable surface is enough to score: a blocked homepage with a live Store API", async () => {
+  // The abstention must be narrow. If either surface answered there is real
+  // evidence, and refusing to score would hide findings the scan did make.
+  const result = await scanStore(STORE, fakeFetch(url =>
+    url.pathname === "/wp-json/wc/store/v1/products"
+      ? jsonResponse([{ id: 1, name: "Shoes", prices: { price: "1" }, stock_status: "instock", description: "<p>A real description of the product for agents.</p>", images: [{ src: "a.jpg" }], status: "publish" }])
+      : new Response("", { status: 403 })));
+  assert.equal(result.state, "SCORED");
+  assert.equal(typeof result.score, "number");
+  assert.ok(result.checks.find(c => c.id === "store_api" && c.ok === true));
+});
+
+test("a scored store keeps its score, its grade and no abstention", async () => {
+  const result = await scanStore(STORE, fakeFetch(healthyWooHandler));
+  assert.equal(result.state, "SCORED");
+  assert.equal(result.unreadable, null);
 });
 
 test("blocked AI crawlers and missing discovery produce recommendations", async () => {
@@ -154,4 +188,52 @@ test("sampleProducts captures the weakest-description products for the deep repo
   const result = await scanStore(STORE, fakeFetch(handler));
   assert.equal(result.sampleProducts[0]?.title, "Thin Product", "weakest description should sort first");
   assert.equal(result.sampleProducts[0]?.description, "ok");
+});
+
+// A storefront answering 530 (Cloudflare could not reach the origin) is down,
+// not reachable. Counting any status at all as a pass told a broken shop it
+// responds and handed it a point it had not earned — found while reading a
+// real scan of a store that was actually offline.
+test("a storefront that errors is not counted as reachable", async () => {
+  for (const status of [500, 503, 530]) {
+    const result = await scanStore("https://shop.example.com", (async () => new Response("", {
+      status, headers: { "content-type": "text/html" },
+    })) as unknown as typeof fetch);
+    const reachable = result.checks.find(c => c.id === "reachable");
+    assert.equal(reachable?.ok, false, `HTTP ${status} must not pass`);
+    assert.equal(reachable?.detail, `HTTP ${status}`);
+  }
+});
+
+test("a storefront that answers normally still passes", async () => {
+  const result = await scanStore("https://shop.example.com", (async () => new Response("<title>Shop</title>", {
+    status: 200, headers: { "content-type": "text/html" },
+  })) as unknown as typeof fetch);
+  assert.equal(result.checks.find(c => c.id === "reachable")?.ok, true);
+});
+
+// Found on a live scan: a real WooCommerce shop behind a bot challenge
+// answered 202 with no markup, so "WooCommerce detected" said no while the
+// very next check found its WooCommerce Store API answering. A responding
+// Store API is WooCommerce; the markup only failed to prove it.
+test("a responding Store API settles detection when the homepage markup is unreadable", async () => {
+  const impl = (async (url: string) => url.includes("/wp-json/wc/store/")
+    ? new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } })
+    : new Response("<html><body>challenge</body></html>", { status: 200, headers: { "content-type": "text/html" } })
+  ) as unknown as typeof fetch;
+
+  const result = await scanStore("https://shop.example.com", impl);
+  const woo = result.checks.find(c => c.id === "woo_detected");
+  assert.equal(woo?.ok, true);
+  assert.match(woo?.detail ?? "", /Store API responds/);
+});
+
+test("a site with neither markers nor a Store API is still not WooCommerce", async () => {
+  const impl = (async (url: string) => url.includes("/wp-json/wc/store/")
+    ? new Response("not found", { status: 404, headers: { "content-type": "text/html" } })
+    : new Response("<html><title>Blog</title></html>", { status: 200, headers: { "content-type": "text/html" } })
+  ) as unknown as typeof fetch;
+
+  const result = await scanStore("https://blog.example.com", impl);
+  assert.equal(result.checks.find(c => c.id === "woo_detected")?.ok, false);
 });
