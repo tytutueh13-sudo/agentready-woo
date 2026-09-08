@@ -11,7 +11,7 @@ export const TOOL_NAME = "agentready_woo_agentic_commerce_readiness_toolkit_for_
 /** Describes the SERVER to a person reading a registry listing. Not what an
  * agent reads to decide whether to call a tool — that is TOOL_DESCRIPTION,
  * which answers "when would I call this?" instead of "what did you build?". */
-export const SERVER_DESCRIPTION = "A deploy-once Cloudflare Worker + MCP server that connects to a store's existing WooCommerce REST API (the merchant's own infra, no per-call upstream cost) and exposes: (1) an agent-readable product feed generated from the live catalog; (2) /.well-known/agenticweb.md discovery metadata so agents can find capabilities; (3) an MCP tool surface agents can call (search products, get offer details, create signed cart links); (4) a dashboard showing agent traffic and missed opportunities. Checkout stays human-approved through signed cart links completed in the buyer's browser — no card data ever touches the service.";
+export const SERVER_DESCRIPTION = "A privacy-safe WooCommerce preflight and owner-authorized Release Gate. Public tools inspect public storefront and protocol surfaces without changing the store. Authenticated tools make a version-pinned release decision from signed aggregate plugin evidence. Unreadable targets produce abstentions, replays are not billable, and no root tool creates orders or handles payment credentials.";
 
 /** What the calling model reads. Written as the question the tool answers,
  * because a description of the product tells a model nothing about when to

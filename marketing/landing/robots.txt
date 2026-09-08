@@ -1,11 +1,18 @@
 # ── Search engines ──────────────────────────────────────────────
-# The paid Release Gate remains private while its billing canary is pending.
-# General search indexing is intentionally disabled during that release phase.
+# Public product and policy pages are indexable. Account, API, webhook and
+# private-result surfaces are not discovery pages and remain blocked.
 User-agent: *
-Disallow: /
+Allow: /
 Disallow: /dashboard
+Disallow: /admin
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
 Disallow: /api/
 Disallow: /webhooks/
+Disallow: /mcp
+Disallow: /channels/
 
 # ── AI crawlers — explicitly welcome ────────────────────────────
 # OpenAI: training / search / live browsing

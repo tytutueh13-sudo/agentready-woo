@@ -20,6 +20,11 @@ import { pingIndexNow } from "./core/indexnow.ts";
 import { sendEmail, weeklyDigestEmailHtml } from "./core/email.ts";
 import type { WorkersAiBinding } from "./core/aiJudge.ts";
 import { releaseGateMcpTools } from "./releaseGate/mcpTools.ts";
+import type { McpTool } from "./core/mcpRpc.ts";
+import {
+  classifyToolResult, mcpChannelForPath, usageChannel,
+  type UsageChannel, type UsageOutcome,
+} from "./core/usage.ts";
 import {
   AGENTREADY_PUBLIC_NAME, AGENTREADY_SERVER_NAME, AGENTREADY_VERSION,
 } from "./productIdentity.ts";
@@ -99,6 +104,8 @@ interface WorkerEnv {
   PADDLE_PRICE_REPORT?: string; PADDLE_PRICE_PRO?: string; PADDLE_PRICE_AGENCY?: string;
   RESEND_API_KEY?: string; EMAIL_FROM?: string;
   RELEASE_GATE_OWNERSHIP_SECRET?: string;
+  OPS_TOKEN?: string;
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   RELEASE_GATE_WORKFLOW?: { create(input: { params: { runId: string } }): Promise<unknown> };
   AI?: WorkersAiBinding;
 }
@@ -155,14 +162,34 @@ async function recordPublicScanOutcome(
   }
 }
 
-function instrumentedPublicScanTool(appStore: AppStore) {
-  const tool = publicScanMcpTool();
+async function recordSurfaceOutcome(
+  appStore: AppStore, operation: string, channel: UsageChannel, outcome: UsageOutcome,
+): Promise<void> {
+  try {
+    await appStore.recordSurfaceUsage("mcp", operation, channel, outcome);
+  } catch (error) {
+    // A measurement outage must not turn a product result into an outage.
+    console.error("aggregate surface usage write failed", { operation, channel, outcome, error: String(error) });
+  }
+}
+
+function instrumentedMcpTool(appStore: AppStore, tool: McpTool, channel: UsageChannel): McpTool {
   return {
     ...tool,
-    async run(args: Record<string, unknown>) {
-      const result = await tool.run(args);
-      await recordPublicScanOutcome(appStore, result.ok ? "success" : "refused");
-      return result;
+    async run(args, context) {
+      try {
+        const result = await tool.run(args, context);
+        const outcome = classifyToolResult(result.ok, result.text);
+        await recordSurfaceOutcome(appStore, tool.name, channel, outcome);
+        if (tool.name === PUBLIC_SCAN_TOOL_NAME) {
+          await recordPublicScanOutcome(appStore,
+            outcome === "answered" ? "success" : outcome === "invalid" ? "invalid" : "refused");
+        }
+        return result;
+      } catch (error) {
+        await recordSurfaceOutcome(appStore, tool.name, channel, "internal_error");
+        throw error;
+      }
     },
   };
 }
@@ -335,7 +362,8 @@ p{color:var(--ink2);margin-bottom:18px}
 `;
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
-    if (url.pathname === "/mcp" && request.method === "POST") {
+    const attributedMcpChannel = mcpChannelForPath(url.pathname);
+    if ((url.pathname === "/mcp" || attributedMcpChannel !== null) && request.method === "POST") {
       const tooLarge = rejectIfTooLarge(request);
       if (tooLarge) return tooLarge;
       const raw = (await request.json()) as unknown;
@@ -344,15 +372,17 @@ p{color:var(--ink2);margin-bottom:18px}
       // catalogue and cart tools remain at /mcp/{store_id}; publishing those
       // without a real tenant would advertise a tool no caller can use.
       if (isJsonRpc(raw)) {
+        const channel = usageChannel(request, env.OPS_TOKEN, attributedMcpChannel ?? "direct");
+        const tools = [
+          publicScanMcpTool(),
+          ...releaseGateMcpTools({}, { app: appStore, workflow: env.RELEASE_GATE_WORKFLOW }),
+        ].map(tool => instrumentedMcpTool(appStore, tool, channel));
         const reply = await handleJsonRpc(raw, {
           // A name a person reads in a registry listing, not the internal
           // product id — that reported itself as "early-3426536d88daa242".
           name: AGENTREADY_SERVER_NAME, version: AGENTREADY_VERSION,
           instructions: "Run a privacy-safe readiness scan against a public WooCommerce storefront. Store-bound shopping tools use /mcp/{store_id}.",
-        }, [
-          instrumentedPublicScanTool(appStore),
-          ...releaseGateMcpTools({}, { app: appStore, workflow: env.RELEASE_GATE_WORKFLOW }),
-        ], {
+        }, tools, {
           authorization: request.headers.get("authorization") ?? undefined,
         });
 
@@ -366,12 +396,16 @@ p{color:var(--ink2);margin-bottom:18px}
       const body = raw as { tool?: string; input?: Record<string, unknown> };
       if (body.tool !== PUBLIC_SCAN_TOOL_NAME) {
         await recordPublicScanOutcome(appStore, "invalid");
+        await recordSurfaceOutcome(appStore, "legacy_public_scan", usageChannel(
+          request, env.OPS_TOKEN, attributedMcpChannel ?? "direct"), "invalid");
         return new Response(JSON.stringify({ error: `unknown tool: ${String(body.tool ?? "(missing)")}` }), {
           status: 400, headers: { "content-type": "application/json" },
         });
       }
       const out = await publicScanMcpTool().run(body.input ?? {});
       await recordPublicScanOutcome(appStore, out.ok ? "success" : "refused");
+      await recordSurfaceOutcome(appStore, "legacy_public_scan", usageChannel(
+        request, env.OPS_TOKEN, attributedMcpChannel ?? "direct"), classifyToolResult(out.ok, out.text));
       return new Response(out.text, {
         status: out.ok ? 200 : 400, headers: { "content-type": "application/json" },
       });

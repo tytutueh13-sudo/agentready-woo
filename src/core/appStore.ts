@@ -4,6 +4,11 @@
 export interface AppD1Statement { bind(...values: unknown[]): AppD1Statement; run(): Promise<{ success: boolean; meta?: { changes?: number } }>; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; }
 export interface AppD1Database { prepare(sql: string): AppD1Statement; }
 
+import {
+  USAGE_CHANNELS, USAGE_OUTCOMES, USAGE_SURFACES,
+  type UsageChannel, type UsageOutcome, type UsageSurface,
+} from "./usage.ts";
+
 export type PlanKey = "free" | "pro" | "agency";
 
 export interface UserRow { id: string; email: string; passwordHash: string; createdAt: number; }
@@ -123,8 +128,8 @@ export interface BillingEventRow {
 // tables that are missing, and leaves earlier production rows untouched. The
 // already-deployed `app_public_mcp_usage_v5` owns version 5, so this additive
 // AI-usage migration must use the next unused number.
-const APP_SCHEMA_VERSION = 13;
-const APP_MIGRATION_NAME = "app_channel_budget_v13_apify_seam";
+const APP_SCHEMA_VERSION = 14;
+const APP_MIGRATION_NAME = "app_aggregate_surface_usage_v14";
 const APP_TABLES: [string, string][] = [
   ["users", "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at INTEGER NOT NULL)"],
   ["sessions", "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)"],
@@ -137,6 +142,7 @@ const APP_TABLES: [string, string][] = [
   ["unclaimed_purchases", "CREATE TABLE IF NOT EXISTS unclaimed_purchases (transaction_id TEXT PRIMARY KEY, email TEXT NOT NULL, price_id TEXT, amount TEXT, currency TEXT, occurred_at INTEGER NOT NULL, claimed_at INTEGER, claimed_by TEXT, raw_json TEXT NOT NULL DEFAULT '{}')"],
   ["report_entitlements", "CREATE TABLE IF NOT EXISTS report_entitlements (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, fulfilled_at INTEGER, scan_id TEXT, delivered_to TEXT, report_html TEXT)"],
   ["agentready_public_mcp_usage_daily", "CREATE TABLE IF NOT EXISTS agentready_public_mcp_usage_daily (kst_date TEXT NOT NULL, tool_name TEXT NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('success','refused','invalid')), calls INTEGER NOT NULL DEFAULT 0 CHECK(calls>=0), updated_at INTEGER NOT NULL, PRIMARY KEY(kst_date,tool_name,outcome))"],
+  ["agentready_surface_usage_daily", "CREATE TABLE IF NOT EXISTS agentready_surface_usage_daily (kst_date TEXT NOT NULL, surface TEXT NOT NULL CHECK(surface IN ('mcp','rest_preflight','wordpress_evidence','release_gate')), operation TEXT NOT NULL, channel TEXT NOT NULL CHECK(channel IN ('direct','operator','mcp_registry','smithery','glama','mcp_directory','rapidapi','api_market','wordpress_org','github_marketplace','apify')), outcome TEXT NOT NULL CHECK(outcome IN ('answered','abstained','invalid','refused','rate_limited','replay','internal_error')), calls INTEGER NOT NULL DEFAULT 0 CHECK(calls>=0), updated_at INTEGER NOT NULL, PRIMARY KEY(kst_date,surface,operation,channel,outcome))"],
   // Aggregate-only spend guard. It intentionally contains no prompt, reply,
   // merchant, store, or customer identifier.
   ["ai_usage_daily", "CREATE TABLE IF NOT EXISTS ai_usage_daily (day_kst TEXT NOT NULL, model TEXT NOT NULL, reserved_neurons INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, success_count INTEGER NOT NULL DEFAULT 0, unavailable_count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day_kst,model))"],
@@ -723,6 +729,36 @@ export class AppStore {
       + "ON CONFLICT(kst_date,tool_name,outcome) DO UPDATE SET calls=calls+1,updated_at=excluded.updated_at",
     ).bind(kstDate, toolName, outcome, now).run();
     if (!row.success) throw new Error("public MCP usage write failed");
+  }
+
+  /** Canonical product telemetry. Every dimension is a finite aggregate label;
+   * a URL, IP, account, token, payload or result cannot be represented. */
+  async recordSurfaceUsage(surface: UsageSurface, operation: string, channel: UsageChannel,
+                           outcome: UsageOutcome, now = Date.now()): Promise<void> {
+    if (!(USAGE_SURFACES as readonly string[]).includes(surface)
+        || !(USAGE_CHANNELS as readonly string[]).includes(channel)
+        || !(USAGE_OUTCOMES as readonly string[]).includes(outcome)
+        || !/^[a-z][a-z0-9_]{1,79}$/.test(operation)) {
+      throw new Error("invalid aggregate usage label");
+    }
+    await this.ensureSchema();
+    const kstDate = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const row = await this.db.prepare(
+      "INSERT INTO agentready_surface_usage_daily(kst_date,surface,operation,channel,outcome,calls,updated_at) VALUES(?,?,?,?,?,1,?) "
+      + "ON CONFLICT(kst_date,surface,operation,channel,outcome) DO UPDATE SET calls=calls+1,updated_at=excluded.updated_at",
+    ).bind(kstDate, surface, operation, channel, outcome, now).run();
+    if (!row.success) throw new Error("surface usage write failed");
+  }
+
+  async surfaceUsageSummary(sinceKstDate: string): Promise<{
+    kst_date: string; surface: string; operation: string; channel: string; outcome: string; calls: number;
+  }[]> {
+    await this.ensureSchema();
+    const rows = await this.db.prepare(
+      "SELECT kst_date,surface,operation,channel,outcome,calls FROM agentready_surface_usage_daily "
+      + "WHERE kst_date>=? ORDER BY kst_date,surface,operation,channel,outcome",
+    ).bind(sinceKstDate).all<{ kst_date: string; surface: string; operation: string; channel: string; outcome: string; calls: number }>();
+    return rows.results.map(row => ({ ...row, calls: Number(row.calls) }));
   }
 
   async createReleaseChallenge(id: string, storeId: string, accountId: string, challengeDigest: string, expiresAt: number): Promise<boolean> {

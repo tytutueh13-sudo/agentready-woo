@@ -186,13 +186,15 @@ test("upstream errors surface with status codes", async () => {
   await assert.rejects(() => runTool({ action: "get_feed" }), /woocommerce api error \(401\)/);
 });
 
-test("buildAgenticWebMd lists tools and endpoints", () => {
+test("buildAgenticWebMd describes the root Release Gate and connected-store boundary", () => {
   const md = buildAgenticWebMd(configFromEnv(CONFIG_ENV));
   assert.match(md, /# AgentReady Woo/);
   assert.match(md, /https:\/\/app\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
   assert.match(md, /GET https:\/\/app\.utilityhouse\.xyz\/\.well-known\/agenticweb\.md/);
-  for (const tool of ["search_products", "get_offer", "get_feed", "create_cart_link", "verify_cart_link"]) {
+  for (const tool of ["scan_woo_store_readiness", "preflight_woo_store", "start_woo_release_verification", "get_woo_release_verification", "claim_woo_release_result"]) {
     assert.match(md, new RegExp(tool));
   }
-  assert.match(md, /completes checkout on https:\/\/store\.example\.com/);
+  assert.match(md, /settlement is disabled/i);
+  assert.match(md, /POST https:\/\/app\.utilityhouse\.xyz\/mcp\/\{store_id\}/);
+  assert.match(md, /Checkout remains on https:\/\/store\.example\.com/);
 });

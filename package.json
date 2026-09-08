@@ -8,6 +8,7 @@
     "test": "node --test",
     "test:wordpress": "bash wordpress-plugin/agentready-woo/integration/run-both.sh",
     "build:plugin": "python3 scripts/package-wordpress-plugin.py",
+    "verify:production": "node scripts/verify-production.mjs",
     "verify:protocol-bundles": "node scripts/verify-protocol-bundles.mjs",
     "dev:worker": "wrangler dev --local --port 8792"
   },

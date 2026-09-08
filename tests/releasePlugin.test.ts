@@ -14,7 +14,7 @@ const packagerPath = fileURLToPath(new URL("../scripts/package-wordpress-plugin.
 
 function phpRollup(productCount: number | null): { state: string; count: number } {
   const wooStub = productCount === null ? "" : `function wc_get_products($args){ return array_fill(0, ${productCount}, 1); }`;
-  const run = spawnSync("php", ["-r", `define('ABSPATH', __DIR__); define('AGENTREADY_WOO_VERSION','0.1.0'); ${wooStub} require $argv[1]; echo json_encode(AgentReady_Woo::release_woo_rollup());`, classPath], { encoding: "utf8" });
+  const run = spawnSync("php", ["-r", `define('ABSPATH', __DIR__); define('AGENTREADY_WOO_VERSION','1.1.0'); ${wooStub} require $argv[1]; echo json_encode(AgentReady_Woo::release_woo_rollup());`, classPath], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   return JSON.parse(run.stdout) as { state: string; count: number };
 }
@@ -29,7 +29,7 @@ test("an empty signed Woo rollup carries the specific empty-sample reason", () =
   const packet = {
     schema_version: "2026-09-06", store_id: "store_aaaa", generated_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + 60_000).toISOString(), nonce: "nonce_aaaaaaaa", key_id: "current",
-    collector_version: "0.1.0", families: ["woo"], checks: { woo_rollup: { state: "FAIL", count: 0 } },
+    collector_version: "1.1.0", families: ["woo"], checks: { woo_rollup: { state: "FAIL", count: 0 } },
     digest: "a".repeat(64),
   } satisfies PluginEvidence;
   assert.equal(pluginEvidenceChecks(packet, ["woo"])[0]?.reasonCode, "WOO_SAMPLE_EMPTY");

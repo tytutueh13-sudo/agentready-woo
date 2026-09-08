@@ -23,25 +23,35 @@ export interface StatusPayload {
   note: string;
 }
 
+type HealthEnv = Record<string, unknown> & {
+  MONEYAI_ARTIFACT_HASH?: string;
+  CF_VERSION_METADATA?: { id?: string };
+};
+
+function artifactHash(env: HealthEnv): string {
+  return env.CF_VERSION_METADATA?.id ?? env.MONEYAI_ARTIFACT_HASH ?? "";
+}
+
 export function health(serviceName: string, version: string,
-  env: Record<string, string | undefined>): HealthPayload {
+  env: HealthEnv): HealthPayload {
   return { status: "healthy", service: serviceName, version, timestamp: new Date().toISOString(),
-    artifactHash: env.MONEYAI_ARTIFACT_HASH ?? "" };
+    artifactHash: artifactHash(env) };
 }
 
 export function status(serviceName: string, version: string,
-  env: Record<string, string | undefined>, productFlagKey = serviceName): StatusPayload {
-  const revenueSystemEnabled = (env.REVENUE_SYSTEM_ENABLED ?? "").trim().toLowerCase() === "true";
-  const productFlag = env[`PRODUCT_${productFlagKey}_ENABLED`];
+  env: HealthEnv, productFlagKey = serviceName): StatusPayload {
+  const stringValue = (key: string): string => typeof env[key] === "string" ? env[key] as string : "";
+  const revenueSystemEnabled = stringValue("REVENUE_SYSTEM_ENABLED").trim().toLowerCase() === "true";
+  const productFlag = stringValue(`PRODUCT_${productFlagKey}_ENABLED`) || undefined;
   const productEnabled = productFlag !== undefined && productFlag.trim().toLowerCase() === "true";
-  const d1ConcurrencyVerified = (env.D1_REAL_CONCURRENCY_VERIFIED ?? "").trim().toLowerCase() === "true";
-  const x402InteropVerified = (env.X402_WIRE_INTEROP_VERIFIED ?? "").trim().toLowerCase() === "true";
+  const d1ConcurrencyVerified = stringValue("D1_REAL_CONCURRENCY_VERIFIED").trim().toLowerCase() === "true";
+  const x402InteropVerified = stringValue("X402_WIRE_INTEROP_VERIFIED").trim().toLowerCase() === "true";
   return {
     status: revenueSystemEnabled && productEnabled ? "healthy" : "degraded",
     service: serviceName, version, timestamp: new Date().toISOString(),
     revenueSystemEnabled, productEnabled,
-    artifactHash: env.MONEYAI_ARTIFACT_HASH ?? "",
-    paymentMode: env.MONEYAI_PAYMENT_MODE ?? "none",
+    artifactHash: artifactHash(env),
+    paymentMode: stringValue("MONEYAI_PAYMENT_MODE") || "none",
     revenueGuardState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     budgetState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     d1ConcurrencyVerified, x402InteropVerified,

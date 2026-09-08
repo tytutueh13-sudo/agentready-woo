@@ -317,52 +317,40 @@ export function buildAgenticWebMd(
 ): string {
   const base = (config.publicBaseUrl || config.storeUrl || "").replace(/\/+$/, "");
   const store = (config.storeUrl || "").replace(/\/+$/, "");
-  return `# AgentReady Woo — agent capabilities for this store
+  return `# AgentReady Woo — WooCommerce preflight and Release Gate
 
-This store exposes its live WooCommerce catalog to commerce agents through
-an AgentReady Woo worker. Prices are in the store's own currency. Checkout
-always completes on the merchant's own site through a human-approved,
-time-limited signed cart link.
+AgentReady checks public WooCommerce surfaces without changing the store. A
+verified owner can then run a version-pinned Release Gate from signed,
+aggregate plugin evidence. An unreadable store produces an abstention, not a
+readiness score.
 
 ## Discovery
 - This document: GET ${base}/.well-known/agenticweb.md
-- Feed: POST ${base}/api/v1/agentready_woo_agentic_commerce_readiness_toolkit_for_self_h with {"input":{"action":"get_feed"}}
-- MCP server: POST ${base}/mcp — JSON-RPC 2.0 (initialize, tools/list, tools/call, ping). Free: the readiness scan is how a store finds out it is not agent-ready, so nothing is owed for it.
-- The same URL still accepts the older non-protocol shape: {"tool":"agentready_woo_agentic_commerce_readiness_toolkit_for_self_h","input":{...}}
-- Per-store surface: POST ${base}/mcp/{store_id}, described at GET ${base}/mcp/{store_id}/discovery
+- MCP server: POST ${base}/mcp — JSON-RPC 2.0 (initialize, tools/list, tools/call, ping)
+- REST preflight: POST ${base}/api/v2/preflight
+- Support: GET ${base}/support
+- Security: GET ${base}/security
 
-## Tools
-- search_products {query, per_page?, page?} — search the live catalog
-- get_offer {product_id} — full offer detail
-- get_feed {} — recent offers with generator metadata
-- create_cart_link {product_id, quantity?} — signed, expiring add-to-cart link (max 1h)
-- verify_cart_link {cart_url} — verify signature/expiry before handoff
+## Root MCP tools
+- scan_woo_store_readiness — public, passive readiness scan
+- preflight_woo_store — public, passive protocol-family preflight
+- start_woo_release_verification — owner-authorized Release Gate start
+- get_woo_release_verification — read an authenticated run
+- claim_woo_release_result — deliver a completed result once; replay is not billable
 
-## Agentic Commerce Protocol
-The per-store MCP server implements the quote half of ACP 2026-04-17, under the
-specification's own names and its {meta, id, payload} argument shape.
+The server's tools/list response is the authoritative input/output schema. The
+three Release Gate tools require an account-scoped bearer token and verified
+store ownership. Release Gate settlement is disabled during the evidence window.
 
-- create_checkout_session — price a basket: line items, the store's own tax, its
-  shipping options, and the landed total in minor currency units. This is the
-  number no catalogue reveals, because tax rules and shipping rates live inside
-  the store.
-- update_checkout_session — add items, set the shipping address, or choose one of
-  the returned fulfillment_options by id. Choosing one moves shipping into the total.
-- get_checkout_session — re-read a session; the store reprices on every read.
+## Evidence boundary
+- Public scans read only public HTTPS pages and public Store API data.
+- Signed plugin evidence is aggregate-only; raw customer, order and payment data is rejected.
+- BLOCKED, UNMEASURED and UNREADABLE are abstentions, not findings.
+- No root tool creates an order or handles payment credentials.
 
-Not offered, and said here rather than failing at call time:
-- complete_checkout_session — no payment is taken. Sessions stay at
-  not_ready_for_payment and carry continue_url.
-- cancel_checkout_session — nothing is held, so there is nothing to cancel.
-  quote_id and quote_expires_at are never set: those mean stock is reserved, and
-  WooCommerce reserves stock only through a PHP path with no REST route.
-
-A delivery estimate is passed through as text when the store gives one.
-ACP's earliest_delivery_time / latest_delivery_time stay unset rather than being
-guessed from it — a wrong delivery date is worse than none.
-
-## Purchase boundary
-No payment credentials flow through this service. Agents should present the
-signed cart link to the buyer; the buyer completes checkout on ${store || "the merchant's own site"}.
+## Connected-store surface
+The separate POST ${base}/mcp/{store_id} surface may expose catalogue search,
+offer lookup and human-approved cart handoff for an account that connected its
+own read-only WooCommerce credentials. Checkout remains on ${store || "the merchant's own site"}.
 `;
 }
