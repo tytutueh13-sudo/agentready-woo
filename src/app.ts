@@ -34,6 +34,9 @@ import { deriveOwnershipKey, ReleaseGateStore } from "./releaseGate/store.ts";
 import { canonicalPluginEvidence, validatePluginEvidence } from "./releaseGate/pluginEvidence.ts";
 import { evidenceCoversFamilies } from "./releaseGate/signedEvidence.ts";
 import { createReleaseToken, parseTokenCreate, publicToken, rotateReleaseToken } from "./releaseGate/apiTokens.ts";
+import {
+  preflightChannelForPath, usageChannel, type UsageChannel, type UsageOutcome,
+} from "./core/usage.ts";
 
 export interface AppEnv {
   FINANCIAL_DB?: unknown;
@@ -92,6 +95,12 @@ function appDb(env: AppEnv): AppStore | null {
   const db = env.FINANCIAL_DB as ConstructorParameters<typeof AppStore>[0] | undefined;
   if (!db) return null;
   return new AppStore(db);
+}
+
+async function recordUsageSafe(app: AppStore, surface: "rest_preflight" | "wordpress_evidence" | "release_gate",
+                               operation: string, channel: UsageChannel, outcome: UsageOutcome): Promise<void> {
+  try { await app.recordSurfaceUsage(surface, operation, channel, outcome); }
+  catch (error) { console.error("aggregate surface usage write failed", { surface, operation, channel, outcome, error: String(error) }); }
 }
 
 function releaseGateJson(status: number, body: unknown): Response { return new Response(status===204?null:JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } }); }
@@ -478,12 +487,15 @@ export async function handleAppRequest(
     const since = Date.now() - days * 86_400_000;
     const funnel = await app.funnelSummary(since);
     const scans = await app.scanOutcomeSummary(since);
+    const sinceKstDate = new Date(since + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const usage = await app.surfaceUsageSummary(sinceKstDate);
     // Counts only. No store URL, caller, request body or raw meta_json leaves
     // this endpoint — an operations read must not become a data export.
     return new Response(JSON.stringify({
       since_days: days,
       funnel,
       scan_outcomes: scans,
+      surface_usage: usage,
       notes: {
         scan_completed: "answered scans only; a scan that could not read the store is in scan_outcomes.abstained",
         attempted: "answered + abstained + unknown",
@@ -541,9 +553,59 @@ export async function handleAppRequest(
   // MCP, Paddle packets, and every financial settlement path. ----
   if (path === "/api/v2/release-evidence" && method === "POST") {
     if (!app) return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});
-    if(!/^application\/json(?:;|$)/i.test(request.headers.get("content-type")??""))return releaseGateJson(415,{code:"EVIDENCE_INVALID"});if(Number(request.headers.get("content-length")??"0")>16_384)return releaseGateJson(413,{code:"EVIDENCE_INVALID"});
-    try { const raw=await request.text();if(raw.length>16_384)return releaseGateJson(413,{code:"EVIDENCE_INVALID"});const packet=await validatePluginEvidence(JSON.parse(raw));const store=await app.getStore(packet.store_id);if(!store)return releaseGateJson(403,{code:"EVIDENCE_INVALID"});const root=packet.key_id==="current"?env.RELEASE_EVIDENCE_CURRENT_KEY:(previousEvidenceKeyAllowed(env.RELEASE_EVIDENCE_PREVIOUS_KEY_EXPIRES_AT)?env.RELEASE_EVIDENCE_PREVIOUS_KEY:undefined);const sig=request.headers.get("x-agentready-evidence-signature")??"";if(!root||sig.length!==64||!constantTimeEqual(sig,await hmac(await evidenceKey(root,store.id,packet.key_id),canonicalPluginEvidence(packet))))return releaseGateJson(403,{code:"EVIDENCE_INVALID"});const receipt=crypto.randomUUID();const stored=await app.recordPluginEvidence(receipt,store.id,store.userId,packet.nonce,packet.digest,JSON.stringify(packet),Date.parse(packet.expires_at),Date.parse(packet.generated_at));if(stored==="failed")return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});if(stored==="conflict")return releaseGateJson(409,{code:"EVIDENCE_CONFLICT"});return releaseGateJson(stored==="stored"?201:409,{code:stored==="stored"?"ACCEPTED":"REPLAY",...(stored==="stored"?{receipt_id:receipt,schema_version:packet.schema_version}:{})});
-    } catch { return releaseGateJson(400,{code:"EVIDENCE_INVALID"}); }
+    const evidenceChannel = usageChannel(request, env.OPS_TOKEN, "wordpress_org");
+    if (!/^application\/json(?:;|$)/i.test(request.headers.get("content-type") ?? "")) {
+      await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "invalid");
+      return releaseGateJson(415, { code: "EVIDENCE_INVALID" });
+    }
+    if (Number(request.headers.get("content-length") ?? "0") > 16_384) {
+      await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "invalid");
+      return releaseGateJson(413, { code: "EVIDENCE_INVALID" });
+    }
+    try {
+      const raw = await request.text();
+      if (raw.length > 16_384) {
+        await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "invalid");
+        return releaseGateJson(413, { code: "EVIDENCE_INVALID" });
+      }
+      const packet = await validatePluginEvidence(JSON.parse(raw));
+      const store = await app.getStore(packet.store_id);
+      if (!store) {
+        await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "refused");
+        return releaseGateJson(403, { code: "EVIDENCE_INVALID" });
+      }
+      const root = packet.key_id === "current" ? env.RELEASE_EVIDENCE_CURRENT_KEY
+        : previousEvidenceKeyAllowed(env.RELEASE_EVIDENCE_PREVIOUS_KEY_EXPIRES_AT)
+          ? env.RELEASE_EVIDENCE_PREVIOUS_KEY : undefined;
+      const signature = request.headers.get("x-agentready-evidence-signature") ?? "";
+      if (!root || signature.length !== 64 || !constantTimeEqual(signature,
+        await hmac(await evidenceKey(root, store.id, packet.key_id), canonicalPluginEvidence(packet)))) {
+        await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "refused");
+        return releaseGateJson(403, { code: "EVIDENCE_INVALID" });
+      }
+      const receipt = crypto.randomUUID();
+      const stored = await app.recordPluginEvidence(receipt, store.id, store.userId,
+        packet.nonce, packet.digest, JSON.stringify(packet), Date.parse(packet.expires_at),
+        Date.parse(packet.generated_at));
+      if (stored === "failed") {
+        await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "internal_error");
+        return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+      }
+      if (stored === "conflict") {
+        await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "refused");
+        return releaseGateJson(409, { code: "EVIDENCE_CONFLICT" });
+      }
+      const replay = stored === "replay";
+      await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel,
+        replay ? "replay" : "answered");
+      return releaseGateJson(replay ? 409 : 201, {
+        code: replay ? "REPLAY" : "ACCEPTED",
+        ...(!replay ? { receipt_id: receipt, schema_version: packet.schema_version } : {}),
+      });
+    } catch {
+      await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "invalid");
+      return releaseGateJson(400, { code: "EVIDENCE_INVALID" });
+    }
   }
   if (path === "/api/v2/release-api-tokens" && method === "GET") {
     if(!app)return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"});const user=await currentUser(request,app);if(!user)return releaseGateJson(401,{code:"AUTH_REQUIRED"});return releaseGateJson(200,{tokens:(await app.listReleaseApiTokens(user.userId)).map(publicToken)});
@@ -579,13 +641,16 @@ export async function handleAppRequest(
       evidence_key: await evidenceKey(env.RELEASE_EVIDENCE_CURRENT_KEY, store.id, "current"),
     });
   }
-  if (path === "/api/v2/preflight" && method === "POST") {
+  const attributedPreflightChannel = preflightChannelForPath(path);
+  if ((path === "/api/v2/preflight" || attributedPreflightChannel !== null) && method === "POST") {
     if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
     // A bearer token that matches the configured channel secret replaces ONLY
     // the per-IP limit — the Apify Actor shares an IP pool, so that counter
     // fails a caller for other people's traffic. The per-target-origin limit
     // is untouched: it protects merchants' stores, not our capacity.
     const channel = preflightChannel(request, env);
+    const measuredChannel = usageChannel(request, env.OPS_TOKEN,
+      channel === "channel" ? "apify" : attributedPreflightChannel ?? "direct");
     try {
       const raw = await request.json() as Record<string, unknown>;
       // Idempotency keys are the channel's, not part of the public contract.
@@ -599,6 +664,7 @@ export async function handleAppRequest(
       if (runKey && itemKey) {
         const seen = await app.recallChannelOutcome(PREFLIGHT_CHANNEL_ID, runKey, itemKey);
         if (seen) {
+          await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel, "replay");
           return releaseGateJson(seen.outcome === "USEFUL" ? 200 : 409, {
             code: "REPLAYED", outcome: seen.outcome, billable: seen.billable,
             store_origin: input.store_origin,
@@ -608,16 +674,25 @@ export async function handleAppRequest(
 
       const originOk = await app.incrementReleaseUsage(
         day, "preflight-origin", await subjectDigest(input.store_origin), 3);
-      if (!originOk) return rateLimited();
+      if (!originOk) {
+        await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel, "rate_limited");
+        return rateLimited();
+      }
 
       if (channel === "channel") {
         // Distributed, and zero until Codex configures a cap.
         const budgetOk = await app.consumeChannelBudget(day, PREFLIGHT_CHANNEL_ID);
-        if (!budgetOk) return rateLimited();
+        if (!budgetOk) {
+          await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel, "rate_limited");
+          return rateLimited();
+        }
       } else {
         const ip = request.headers.get("cf-connecting-ip") ?? "unavailable";
         const ipOk = await app.incrementReleaseUsage(day, "preflight-ip", await subjectDigest(ip), 10);
-        if (!ipOk) return rateLimited();
+        if (!ipOk) {
+          await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel, "rate_limited");
+          return rateLimited();
+        }
       }
 
       const result = await runPreflight(input);
@@ -626,8 +701,14 @@ export async function handleAppRequest(
         await app.rememberChannelOutcome(PREFLIGHT_CHANNEL_ID, runKey, itemKey,
           answered ? "USEFUL" : "ABSTAINED", answered);
       }
+      await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel,
+        result.state === "BLOCKED" || result.state === "UNMEASURED" ? "abstained" : "answered");
       return releaseGateJson(200, result);
-    } catch (error) { return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" }); }
+    } catch (error) {
+      await recordUsageSafe(app, "rest_preflight", "preflight_woo_store", measuredChannel,
+        error instanceof ContractError ? "invalid" : "internal_error");
+      return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" });
+    }
   }
   const ownershipPath = path.match(/^\/api\/v2\/stores\/([^/]+)\/ownership-challenges$/);
   if (ownershipPath && method === "POST") {
@@ -645,24 +726,95 @@ export async function handleAppRequest(
     return releaseGateJson(verified ? 200 : 403, { verified });
   }
   if (path === "/api/v2/acceptance-runs" && method === "POST") {
-    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
-    try { const input = parseAcceptanceRunInput(await request.json()); const store = await app.getStore(input.store_id); if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
-      const gate = new ReleaseGateStore(app); if (!await app.hasVerifiedReleaseOwnership(store.id,user.userId)) return releaseGateJson(403, { code: "OWNERSHIP_REQUIRED" });const generation=await app.getActivePluginEvidence(store.id,user.userId);if(!generation)return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"BLOCKED",settlement:"disabled"});let signed;try{signed=await validatePluginEvidence(JSON.parse(generation.safePacket));}catch{return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"UNMEASURED",settlement:"disabled"});}if(signed.digest!==generation.digest||!evidenceCoversFamilies(signed,input.requested_families))return releaseGateJson(409,{code:"EVIDENCE_REQUIRED",state:"UNMEASURED",settlement:"disabled"});
-      if (!env.RELEASE_GATE_WORKFLOW) return releaseGateJson(503, { code: "WORKFLOW_UNAVAILABLE", settlement: "disabled" });
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+    const channel = usageChannel(request, env.OPS_TOKEN, "direct");
+    const user = await currentUser(request, app);
+    if (!user) {
+      await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "refused");
+      return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    }
+    try {
+      const input = parseAcceptanceRunInput(await request.json());
+      const store = await app.getStore(input.store_id);
+      if (!store || store.userId !== user.userId) {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "refused");
+        return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
+      }
+      const gate = new ReleaseGateStore(app);
+      if (!await app.hasVerifiedReleaseOwnership(store.id, user.userId)) {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "refused");
+        return releaseGateJson(403, { code: "OWNERSHIP_REQUIRED" });
+      }
+      const generation = await app.getActivePluginEvidence(store.id, user.userId);
+      if (!generation) {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "abstained");
+        return releaseGateJson(409, { code: "EVIDENCE_REQUIRED", state: "BLOCKED", settlement: "disabled" });
+      }
+      let signed;
+      try { signed = await validatePluginEvidence(JSON.parse(generation.safePacket)); }
+      catch {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "abstained");
+        return releaseGateJson(409, { code: "EVIDENCE_REQUIRED", state: "UNMEASURED", settlement: "disabled" });
+      }
+      if (signed.digest !== generation.digest || !evidenceCoversFamilies(signed, input.requested_families)) {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "abstained");
+        return releaseGateJson(409, { code: "EVIDENCE_REQUIRED", state: "UNMEASURED", settlement: "disabled" });
+      }
+      if (!env.RELEASE_GATE_WORKFLOW) {
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "internal_error");
+        return releaseGateJson(503, { code: "WORKFLOW_UNAVAILABLE", settlement: "disabled" });
+      }
       const run = await gate.createOrGetRun(user.userId,input);
       try { await env.RELEASE_GATE_WORKFLOW.create({ params: { runId: run.id } }); }
-      catch { await gate.markDispatchFailed(run); return releaseGateJson(503, { code: "WORKFLOW_DISPATCH_FAILED", run_id:run.id, state:"TERMINAL", terminal_state:"INFRA_ERROR", settlement: "disabled" }); }
+      catch {
+        await gate.markDispatchFailed(run);
+        await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "internal_error");
+        return releaseGateJson(503, { code: "WORKFLOW_DISPATCH_FAILED", run_id:run.id, state:"TERMINAL", terminal_state:"INFRA_ERROR", settlement: "disabled" });
+      }
+      await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "answered");
       return releaseGateJson(202, { run_id: run.id, state: run.state, settlement: "disabled" });
-    } catch (error) { return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" }); }
+    } catch (error) {
+      await recordUsageSafe(app, "release_gate", "start_woo_release_verification", channel, "invalid");
+      return releaseGateJson(400, { code: error instanceof ContractError ? error.code : "INVALID_BODY" });
+    }
   }
   const runPath = path.match(/^\/api\/v2\/acceptance-runs\/([^/]+)$/);
   if (runPath && method === "GET") {
-    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" }); const run = await new ReleaseGateStore(app).getRun(runPath[1],user.userId); return run ? releaseGateJson(200,{ run_id:run.id,state:run.state,terminal_state:run.terminalState,evidence_digest:run.evidenceDigest }) : releaseGateJson(404,{ code:"RUN_NOT_FOUND" });
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+    const channel = usageChannel(request, env.OPS_TOKEN, "direct");
+    const user = await currentUser(request, app);
+    if (!user) {
+      await recordUsageSafe(app, "release_gate", "get_woo_release_verification", channel, "refused");
+      return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    }
+    const run = await new ReleaseGateStore(app).getRun(runPath[1], user.userId);
+    await recordUsageSafe(app, "release_gate", "get_woo_release_verification", channel,
+      run ? "answered" : "refused");
+    return run ? releaseGateJson(200,{ run_id:run.id,state:run.state,terminal_state:run.terminalState,evidence_digest:run.evidenceDigest }) : releaseGateJson(404,{ code:"RUN_NOT_FOUND" });
   }
   const claimPath = path.match(/^\/api\/v2\/acceptance-runs\/([^/]+)\/claim-result$/);
   if (claimPath && method === "POST") {
-    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" }); const gate = new ReleaseGateStore(app); const run = await gate.getRun(claimPath[1],user.userId); if (!run) return releaseGateJson(404,{code:"RUN_NOT_FOUND"}); if (run.state !== "TERMINAL") return releaseGateJson(409,{code:"RESULT_NOT_READY"});
-    const claim = await gate.claim(run,"direct",await subjectDigest(user.userId)); return releaseGateJson(200,{ packet:claim.packet, delivery: claim.firstDelivery ? "FIRST" : "REPLAY", billable_eligibility: claim.billable ? "ELIGIBLE_ON_FIRST_DELIVERY" : "NOT_BILLABLE", settlement:"disabled" });
+    if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" });
+    const channel = usageChannel(request, env.OPS_TOKEN, "direct");
+    const user = await currentUser(request, app);
+    if (!user) {
+      await recordUsageSafe(app, "release_gate", "claim_woo_release_result", channel, "refused");
+      return releaseGateJson(401, { code: "AUTH_REQUIRED" });
+    }
+    const gate = new ReleaseGateStore(app);
+    const run = await gate.getRun(claimPath[1], user.userId);
+    if (!run) {
+      await recordUsageSafe(app, "release_gate", "claim_woo_release_result", channel, "refused");
+      return releaseGateJson(404,{code:"RUN_NOT_FOUND"});
+    }
+    if (run.state !== "TERMINAL") {
+      await recordUsageSafe(app, "release_gate", "claim_woo_release_result", channel, "abstained");
+      return releaseGateJson(409,{code:"RESULT_NOT_READY"});
+    }
+    const claim = await gate.claim(run, "direct", await subjectDigest(user.userId));
+    await recordUsageSafe(app, "release_gate", "claim_woo_release_result", channel,
+      claim.firstDelivery ? "answered" : "replay");
+    return releaseGateJson(200,{ packet:claim.packet, delivery: claim.firstDelivery ? "FIRST" : "REPLAY", billable_eligibility: claim.billable ? "ELIGIBLE_ON_FIRST_DELIVERY" : "NOT_BILLABLE", settlement:"disabled" });
   }
   if (path === "/api/v2/comparisons" && method === "POST") {
     if (!app) return releaseGateJson(503,{code:"INFRA_PERSISTENCE_FAILED"}); const user = await currentUser(request,app); if (!user) return releaseGateJson(401,{code:"AUTH_REQUIRED"}); const body = await request.json().catch(() => null) as Record<string,unknown> | null; if (!body || Object.keys(body).some(k=>k!=="base_run_id"&&k!=="current_run_id") || typeof body.base_run_id !== "string" || typeof body.current_run_id !== "string") return releaseGateJson(400,{code:"INVALID_BODY"});

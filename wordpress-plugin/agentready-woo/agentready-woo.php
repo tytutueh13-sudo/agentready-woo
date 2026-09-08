@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AgentReady Woo
  * Plugin URI:  https://app.utilityhouse.xyz
- * Description: Makes your WooCommerce store readable and buyable by AI shopping agents — ChatGPT, Claude, and independent agents. Publishes an agent discovery file, opens robots.txt to AI crawlers, and (optionally) connects your AgentReady feed, MCP endpoint and agent analytics.
- * Version:     0.1.0
+ * Description: Publishes agent discovery and sends signed, aggregate-only WooCommerce evidence for an owner-authorized AgentReady Release Gate. Optional read-only catalogue features remain separate.
+ * Version:     1.1.0
  * Author:      AgentReady / UtilityHouse
  * Author URI:  https://app.utilityhouse.xyz
  * License:     GPL-2.0-or-later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AGENTREADY_WOO_VERSION', '0.1.0' );
+define( 'AGENTREADY_WOO_VERSION', '1.1.0' );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-agentready-woo.php';
 

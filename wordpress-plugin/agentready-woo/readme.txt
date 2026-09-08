@@ -1,76 +1,84 @@
-=== AgentReady Woo — AI Shopping Agents for WooCommerce ===
+=== AgentReady Woo — Release evidence for WooCommerce ===
 Contributors: agentready
-Tags: ai, chatgpt, shopping agent, mcp, seo, woocommerce products, agentic commerce, feed, discoverability
+Tags: woocommerce, release testing, mcp, agentic commerce, privacy
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Make your WooCommerce store readable and buyable by AI shopping agents — ChatGPT, Claude, Perplexity and independent agents.
+Publish agent discovery and send signed, aggregate-only WooCommerce evidence to an owner-authorized AgentReady Release Gate.
 
 == Description ==
 
-ChatGPT already shops. More than a million Shopify stores were rolled into ChatGPT shopping automatically. Self-hosted WooCommerce stores woke up invisible.
+AgentReady Woo gives a WooCommerce owner two deliberately separate capabilities.
 
-AgentReady Woo is the catch-up. In five minutes, your store becomes readable, in-stock queryable, and buyable by AI shopping agents — with checkout always completing on your own store.
+**Release Gate evidence**
 
-**What the free plugin does today**
+* Creates a short-lived, signed evidence envelope from a closed set of aggregate checks.
+* Sends no customer, order, payment, email, address, URL, log or raw diagnostic fields.
+* Supports current/previous evidence keys for controlled rotation.
+* Runs daily only after an administrator configures an authenticated connection bundle.
+* Can also be sent manually by a WooCommerce administrator.
 
-* **Agent discovery file** — publishes `/.well-known/agenticweb.md` on your own domain, telling AI agents what your store sells and how to query it.
-* **AI crawler access** — explicitly allows the shopping-relevant AI crawlers (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot and more) in robots.txt, so agents can actually read your catalog.
-* **Discovery link tag** — declares the agent discovery endpoint in your page head.
-* **Live preview** — see exactly what agents see, right from the WooCommerce admin.
+The AgentReady service combines that signed evidence with public protocol checks to make a version-pinned release decision. An unavailable signal becomes `UNMEASURED` or `BLOCKED`; it is not converted into a low score or a confident diagnosis. Release Gate settlement is currently disabled.
 
-**Connect an AgentReady endpoint (free scan to get one) and unlock**
+**Store discovery and optional connected catalogue**
 
-* **Agent-readable feed** — your live WooCommerce catalog as structured offers agents can query: price, stock, shipping.
-* **MCP endpoint** — agents search products, get offer details, and create signed cart handoffs via the Model Context Protocol.
-* **Signed cart handoff** — the agent hands the buyer a signed cart link; checkout happens in the buyer's browser on YOUR store. No card data ever touches the service.
-* **Agent-request count** — see how many AI-agent requests your feed and MCP endpoint get, right in your dashboard.
+* Publishes `/.well-known/agenticweb.md` on the store's own domain.
+* Adds a discovery link tag and explicit access for named AI crawlers.
+* Can connect a separate read-only AgentReady catalogue endpoint for product search, offer lookup and human-approved cart handoff.
 
-**Why now**
-
-AI-referred shoppers convert +38% higher than traditional search (Adobe Analytics). AI traffic to US retail sites grew +138% year-over-year in May 2026 — the highest share ever recorded (Reuters/Adobe). Shopify merchants got automatic access. This plugin is how self-hosted WooCommerce catches up.
+The connected catalogue is not required for Release Gate. Checkout stays on the merchant's WooCommerce store, and this plugin never handles card data.
 
 == Installation ==
 
 1. Install and activate the plugin.
 2. Go to WooCommerce → AgentReady.
-3. Your discovery file is already live at `/.well-known/agenticweb.md`.
-4. Optional: run the free scan at app.utilityhouse.xyz to get your AgentReady feed + MCP endpoint, then paste the endpoint URL into the settings.
+3. Confirm the discovery document at `/.well-known/agenticweb.md`.
+4. In your authenticated AgentReady dashboard, create a store connection bundle.
+5. Paste the opaque store id and derived ownership/evidence keys into the plugin settings.
+6. Send one evidence envelope and verify the receipt in the AgentReady dashboard.
+
+Without steps 4–6 the Release Gate collector remains inert. The discovery document still works.
 
 == Frequently Asked Questions ==
 
-= Does this touch my checkout or payment data? =
+= Does this collect customers, orders or payment data? =
 
-No. Agents discover products and hand the buyer a signed cart link. The purchase completes in the buyer's browser, on your store, through your existing checkout. No card data ever passes through any AgentReady service.
+No. The Release Gate schema accepts only a closed aggregate envelope. Customer, order, payment, email, address, URL, raw body and log fields are not part of that schema and are rejected by the service.
 
-= Does this slow down my store? =
+= What happens when evidence cannot be measured? =
 
-No. The plugin adds one lightweight discovery file, a few robots.txt lines, and one link tag. The agent feed runs on your AgentReady endpoint, not on your server.
+The result says `UNMEASURED` or `BLOCKED` with a finite reason code. Missing evidence is not presented as a store failure.
 
-= Is my product data sent anywhere? =
+= Does activation immediately send data? =
 
-The discovery file is served from your own site. If you connect an AgentReady endpoint, it reads your existing WooCommerce REST API (read-only key that you issue and can revoke in one click) to build the agent feed.
+No. The scheduled collector is inert until a WooCommerce administrator configures the store id and derived evidence key. Administrators can revoke or rotate the connection from the AgentReady dashboard.
 
-= How is this different from an SEO plugin? =
+= Does this touch checkout? =
 
-SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out.
+No. Release Gate does not create orders or handle payment credentials. The optional connected catalogue can produce a signed cart handoff, but checkout still completes in the buyer's browser on the merchant's store.
 
 = What does it cost? =
 
-The plugin is free. The AgentReady free tier keeps a basic feed and discovery live forever (your top 25 products). Paid tiers add unlimited offers, cart handoff and agent analytics.
+The plugin and public preflight are free. Release Gate settlement is disabled while operational evidence is measured. Existing AgentReady account products do not grant Release Gate access.
 
 == Screenshots ==
 
-1. Connect your store — paste your store URL, issue a read-only WooCommerce API key.
-2. Your feed goes live — every product becomes a structured offer agents can query.
-3. Agents find you — an agent asks for a product, gets your offer, and hands the buyer a signed cart.
-4. See agents show up — a live request count proves they're actually reading your catalog.
+1. Configure the authenticated Release Gate connection bundle.
+2. Send aggregate evidence now or let the daily schedule run.
+3. Verify the evidence receipt and version-pinned run in the AgentReady dashboard.
+4. Inspect explicit accepted, rejected, partial, blocked or unmeasured outcomes.
 
 == Changelog ==
 
+= 1.1.0 =
+* Added signed, aggregate-only Release Gate evidence.
+* Added exact-once nonce handling and current/previous key rotation support.
+* Added owner proof and authenticated Release Gate connection settings.
+* Rewrote public documentation around the measured privacy and abstention contract.
+
 = 0.1.0 =
-* Initial release: agent discovery file, AI crawler robots access, discovery link tag, live preview, endpoint connection.
+* Initial discovery document, crawler access, link tag and optional connected catalogue.

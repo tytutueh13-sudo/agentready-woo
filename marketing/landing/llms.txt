@@ -1,44 +1,53 @@
 # AgentReady Woo
 
-> AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from. Checkout completes on the merchant's own site via signed cart handoff — no card data ever passes through AgentReady.
+> A privacy-safe WooCommerce preflight and owner-authorized Release Gate. It checks public storefront surfaces, then lets a verified owner make a version-pinned release decision from signed aggregate plugin evidence. It does not create orders, take payment details or treat an unreadable store as a failed store.
 
-A free scan grades any WooCommerce store's agent-readiness out of 100: discovery files, Store API health, feed quality, cart-handoff support. Merchants fix the reported gaps, then expose their catalog to shopping agents including ChatGPT shopping surfaces, Claude, and independent agents. Feeds are read from the store on every request, so price and stock are the store's current values rather than a cached copy.
+## Public entry points
 
-## Pages
+- Website and free browser scan: https://app.utilityhouse.xyz/
+- MCP server: https://app.utilityhouse.xyz/mcp
+- REST preflight: POST https://app.utilityhouse.xyz/api/v2/preflight
+- OpenAPI document: https://github.com/tytutueh13-sudo/agentready-woo/blob/main/openapi-preflight.yaml
+- Support: https://app.utilityhouse.xyz/support
+- Security: https://app.utilityhouse.xyz/security
+- Status: https://app.utilityhouse.xyz/status
 
-- [Home + free scan](https://app.utilityhouse.xyz/): grade any WooCommerce store instantly
-- [How it works](https://app.utilityhouse.xyz/#product): connect store → scan → live agent feed → signed cart handoff
-- [Pricing](https://app.utilityhouse.xyz/#pricing)
-- [FAQ](https://app.utilityhouse.xyz/#faq)
+## Root MCP tools
 
-## Pricing
+The root MCP server exposes five tools. The first two are public and read-only.
+The final three require an account-scoped bearer token and verified store
+ownership.
 
-- **Free** — forever: readiness score, top-25 product feed
-- **Commerce Readiness Packet** — $9 one-off: observed readiness gaps ordered by impact, concrete next steps, and optional AI-assisted copy drafts from filtered product text. It is saved in the buyer's account and delivered by email after a scan. AI drafts are not a claim that an external shopping agent tested or recommended the store.
-- **Pro** — $49 once: unlimited offers, signed cart handoff, weekly agent-activity email — no renewal
-- **Agency** — $99/year: 25 client stores, priority support
+1. `scan_woo_store_readiness` — score readable public WooCommerce surfaces; returns `UNREADABLE` with a null score when it cannot read the store.
+2. `preflight_woo_store` — passive protocol preflight over selected `woo`, `robots`, `jsonld`, `mcp`, `ucp` and `acp` families.
+3. `start_woo_release_verification` — start an owner-authorized, version-pinned Release Gate run.
+4. `get_woo_release_verification` — read a run owned by the authenticated account.
+5. `claim_woo_release_result` — deliver one completed result; a replay is never billable.
 
-## For agents and developers
+MCP transport is JSON-RPC 2.0 and supports `initialize`, `ping`, `tools/list`
+and `tools/call`. Read the schemas returned by `tools/list`; do not infer
+arguments from this prose.
 
-- MCP server: `https://app.utilityhouse.xyz/mcp/{store_id}` — a Model Context Protocol server speaking JSON-RPC 2.0 (initialize, tools/list, tools/call, ping). Four tools; every input schema comes back from tools/list. A refusal the plan causes (a product outside the free catalogue window) answers with isError and an explanation, not a protocol error.
-- Endpoint description: `GET https://app.utilityhouse.xyz/mcp/{store_id}/discovery` — an Agentic Commerce Protocol discovery document naming the version, the transport, and the services this seller actually implements.
+## Evidence and safety boundary
 
-## Agentic Commerce Protocol
+- Public scans read only public HTTPS pages and the public WooCommerce Store API.
+- Plugin evidence is aggregate-only and HMAC-signed. Customer, order, payment, email, address, URL and raw log fields are not accepted by its schema.
+- A store that cannot be read produces an abstention, not a low readiness score.
+- Release Gate results can be `ACCEPTED`, `REJECTED`, `PARTIAL`, `BLOCKED`, `UNMEASURED`, `INFRA_ERROR` or `CANCELED`.
+- Checkout and payment remain on the merchant's own WooCommerce store.
 
-The store's MCP server implements the quote half of ACP 2026-04-17, under the specification's own tool names and its `{meta, id, payload}` argument shape:
+## Payment state
 
-- `create_checkout_session` — price a basket against this store: line items, the store's own tax, its shipping options, and the landed total in minor currency units. This is the number an agent cannot work out from a catalogue, because tax rules and shipping rates live inside the store.
-- `update_checkout_session` — add items, set or change the shipping address, or choose one of the returned `fulfillment_options` by id. Choosing an option is what moves shipping into the total.
-- `get_checkout_session` — re-read a session. Prices are recomputed by the store on every read, so a quote is current rather than remembered.
+The free scan and public preflight are free. Release Gate settlement is
+currently disabled while organic use and billing invariants are measured.
+No plan shown on the website grants Release Gate access.
 
-Two ACP operations are deliberately not offered, and the discovery document says so rather than failing at call time:
+Existing account products remain separate: Commerce Readiness Packet is $9
+once, Pro is $49 once, and Agency is $99/year.
 
-- `complete_checkout_session` — no payment is taken here. Sessions stay at status `not_ready_for_payment` and carry `continue_url`, where the buyer completes the purchase on the merchant's own store through the gateway it already runs.
-- `cancel_checkout_session` — there is nothing to cancel, because nothing is held. `quote_id` and `quote_expires_at` are never set: those are ACP's way of saying stock is reserved, and WooCommerce reserves stock only through a PHP path with no REST route.
+## Secondary connected-store surface
 
-A shipping option's delivery estimate is passed through as text when the store provides one. ACP's `earliest_delivery_time` / `latest_delivery_time` are left unset rather than guessed from it — a wrong delivery date is worse than none, because the buyer plans around it.
-- The same URL still accepts the older non-protocol shape it began with: `POST {"tool": "...", "input": {...}}`
-- Per-store agent discovery file + JSON product feed (price, stock, categories, sale prices)
-- Cart handoff: HMAC-signed, single-use links expiring in ≤60 minutes; buyer completes checkout on the merchant's own site
-- Auth: merchant-issued read-only WooCommerce REST API key, revocable in one click
-- Setup: paste store URL + a read-only WooCommerce REST API key — no plugin install required, five minutes
+An account may also connect its own read-only WooCommerce REST credentials to
+serve product search, offer lookup and human-approved cart handoff from a
+store-bound endpoint. That connected-store catalogue surface is separate from
+the root five-tool Release Gate contract.

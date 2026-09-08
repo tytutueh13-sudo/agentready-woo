@@ -18,3 +18,9 @@ test("public health identity never exposes the durable AgentReady product key", 
   assert.equal(publicStatus.productEnabled, true);
   assert.doesNotMatch(JSON.stringify({ publicHealth, publicStatus }), /early-3426536d88daa242/);
 });
+
+test("Cloudflare version metadata is the deployed artifact identity", () => {
+  const env = { CF_VERSION_METADATA: { id: "version-123" }, MONEYAI_ARTIFACT_HASH: "legacy" };
+  assert.equal(health(AGENTREADY_PUBLIC_NAME, AGENTREADY_VERSION, env).artifactHash, "version-123");
+  assert.equal(status(AGENTREADY_PUBLIC_NAME, AGENTREADY_VERSION, env).artifactHash, "version-123");
+});

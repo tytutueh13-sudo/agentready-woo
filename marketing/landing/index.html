@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <title>AgentReady Woo — Store Preflight and Release Gate</title>
 <link rel="canonical" href="https://app.utilityhouse.xyz/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -27,6 +27,7 @@
   --serif:'Fraunces',serif; --sans:'Spline Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+:focus-visible{outline:3px solid #fff;outline-offset:3px;box-shadow:0 0 0 6px #075FCC}
 html{background:var(--paper)}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1140px;margin:0 auto;padding:0 32px}
@@ -57,7 +58,7 @@ nav .links a,.btn{min-height:44px;display:inline-flex;align-items:center;justify
 .hero{position:relative;color:#fff;overflow:hidden;background:var(--dark)}
 .hero{background:#141218 url(demo-preflight-poster.jpg) center/cover no-repeat}
 .hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.hero .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,24,.66),rgba(20,18,24,.5) 55%,rgba(20,18,24,.88) 100%)}
+.hero .veil{position:absolute;inset:0;background:linear-gradient(90deg,#141218 0%,#141218 70%,rgba(20,18,24,.9) 100%)}
 .hero .in{position:relative;max-width:1140px;margin:0 auto;padding:130px 32px 96px}
 .hero h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,6vw,68px);line-height:1.05;letter-spacing:-.015em;max-width:760px}
 .hero h1 em{font-style:italic;color:#FFB59A}
@@ -87,8 +88,8 @@ nav .links a,.btn{min-height:44px;display:inline-flex;align-items:center;justify
 .ui .body{padding:22px}
 label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 5px;color:var(--ink2)}
 .inp{width:100%;border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:13px;background:#fff;color:var(--ink)}
-.inp:focus{outline:none;border-color:var(--acc-dark)}
-.btn-sm{background:var(--acc);color:var(--ink);border:0;border-radius:6px;font-weight:600;font-size:13.5px;padding:10px 18px;cursor:pointer;margin-top:16px}
+.inp:focus{border-color:var(--acc-dark)}
+.btn-sm{background:var(--acc);color:var(--ink);border:0;border-radius:6px;font-weight:600;font-size:13.5px;padding:10px 18px;cursor:pointer;margin-top:16px;min-height:44px}
 .okline{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ok);margin-top:12px;font-family:var(--mono)}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500}
@@ -168,13 +169,13 @@ footer .logo .by{color:var(--ink3);font-weight:400;font-size:13px}
 footer .brand p{font-size:13.5px;color:var(--ink2);max-width:300px;margin-top:12px;line-height:1.55}
 footer .col{display:flex;flex-direction:column;gap:9px;font-size:13.5px}
 footer .col .h{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
-footer .col a{color:var(--ink2);text-decoration:none}
+footer .col a{color:var(--ink2);text-decoration:none;min-height:24px}
 footer .col a:hover{color:var(--acc-dark)}
 footer .legal{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:44px;padding-top:22px;font-size:12.5px;color:var(--ink3)}
 footer .legal a{color:var(--ink3);text-decoration:none}
 footer .legal a:hover{color:var(--ink)}
 @media(max-width:880px){
-  .hero .veil{background:linear-gradient(180deg,rgba(20,18,24,.8) 0%,rgba(20,18,24,.62) 55%,rgba(20,18,24,.92) 100%)}
+  .hero .veil{background:#141218}
   .hero video{object-position:72% center}
   .hero .in{padding:104px 24px 72px}
   footer .cols{grid-template-columns:1fr;gap:28px}
@@ -194,7 +195,7 @@ footer .legal a:hover{color:var(--ink)}
   nav .links{width:100%;justify-content:flex-end;flex-wrap:wrap;column-gap:16px;row-gap:6px;font-size:13px}
   nav .links a{display:inline-block;padding:13px 0}
 }
-@media (prefers-reduced-motion: reduce){.hero video{display:none}.hero{background:#141218 url(demo-preflight-poster.jpg) center/cover no-repeat}.hero .veil{background:linear-gradient(180deg,rgba(20,18,24,.78),rgba(20,18,24,.9))}*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion: reduce){.hero video{display:none}.hero{background:#141218 url(demo-preflight-poster.jpg) center/cover no-repeat}.hero .veil{background:#141218}*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 #scan-out table{width:100%;border-collapse:collapse;font-size:14.5px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 #scan-out td,#scan-out th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
 #scan-out tr:last-child td{border-bottom:0}
@@ -210,8 +211,8 @@ footer .legal a:hover{color:var(--ink)}
 .scanbar{display:flex;gap:10px;flex-wrap:wrap;margin:26px 0 14px}
 .scanbar input{flex:1;min-width:250px;border:1px solid rgba(255,255,255,.28);border-radius:6px;padding:13px 15px;font-size:15px;font-family:var(--sans);background:rgba(20,18,24,.45);color:#fff}
 .scanbar input::placeholder{color:rgba(255,255,255,.55)}
-.scanbar input:focus{outline:none;border-color:var(--acc-dark)}
-.hero-see{color:rgba(255,255,255,.72);font-size:14px;text-decoration:none}
+.scanbar input:focus{border-color:var(--acc-dark)}
+.hero-see{color:rgba(255,255,255,.72);font-size:14px;text-decoration:none;display:inline-flex;align-items:center;min-height:44px}
 .hero-see:hover{color:#fff}
 .cta-safety{font-size:12px;line-height:1.6;opacity:.72;margin:10px 0 0;max-width:46ch}
 
@@ -240,7 +241,7 @@ footer .legal a:hover{color:var(--ink)}
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "url": "https://app.utilityhouse.xyz/",
-  "description": "AgentReady scans self-hosted WooCommerce stores and scores how ready they are for AI-agent commerce (MCP/A2A), then generates a live product feed that shopping agents can query and sell from, with checkout on the merchant's own site.",
+  "description": "AgentReady runs a passive WooCommerce Store Preflight and an owner-authorized, evidence-based Release Gate. A separate connected-store surface can expose a read-only product feed and cart handoff, with checkout on the merchant's own site.",
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "Readiness score and top-25 product feed, forever" },
     { "@type": "Offer", "name": "Commerce Readiness Packet", "price": "9.00", "priceCurrency": "USD", "description": "One-off prioritized evidence packet, delivered by email" },
@@ -267,12 +268,12 @@ footer .legal a:hover{color:var(--ink)}
     {
       "@type": "Question",
       "name": "Which AI agents does this actually reach?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. Your store's MCP server already speaks the Agentic Commerce Protocol (ACP 2026-04-17) for quoting, under the specification's own tool names, so an agent that has read the spec can price a basket against your store without being taught anything." }
+      "acceptedAnswer": { "@type": "Answer", "text": "The root endpoint is a standard JSON-RPC MCP server with five declared tools and machine-readable schemas. Compatibility does not guarantee that any named agent or marketplace will discover or call it; the live activity ledger reports observed calls separately." }
     },
     {
       "@type": "Question",
       "name": "How is this different from an SEO plugin?",
-      "acceptedAnswer": { "@type": "Answer", "text": "SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock-queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out." }
+      "acceptedAnswer": { "@type": "Answer", "text": "SEO and AgentReady answer different questions. The public preflight reports observable WooCommerce and agent-protocol surfaces; the owner-authorized Release Gate compares signed aggregate evidence against a version-pinned contract." }
     },
     {
       "@type": "Question",
@@ -322,7 +323,7 @@ footer .legal a:hover{color:var(--ink)}
     <p class="cta-safety">Preflight reads public surfaces only. Release Gate never creates an order, payment, inventory reservation, or customer email.</p>
     <a href="#product" class="hero-see">See it work ↓</a>
     <div class="facts">
-      <div class="fact"><b>1M+</b>Shopify stores were auto-onboarded into ChatGPT shopping. No equivalent onboarding reached WooCommerce. <span style="opacity:.75">Sources below.</span></div>
+      <div class="fact"><b>5</b>declared MCP tools: two public checks and three owner-authorized Release Gate operations.</div>
       <div class="fact"><b>0</b>credentials, signups or store changes for the free preflight. It reads public surfaces only.</div>
       <div class="fact"><b>13</b>checks on your live storefront, in about a minute. Free, no signup, no store changes.</div>
     </div>
@@ -355,20 +356,20 @@ footer .legal a:hover{color:var(--ink)}
 <section style="border-top:0">
   <div class="sec-head">
     <div class="kicker"><span class="no">01</span>Who this is for</div>
-    <h2>Built for the stores big platforms forgot.</h2>
+    <h2>Built for WooCommerce owners who need a release answer.</h2>
   </div>
   <div class="who">
     <div class="cell">
       <div class="cell-no">A</div>
       <h4>You run a WooCommerce store</h4>
-      <p>Shopify merchants got rolled into ChatGPT automatically. You woke up invisible to AI shoppers.</p>
-      <p class="cell-fine">AgentReady is the catch-up — your catalog, translated to what agents read, live in five minutes.</p>
+      <p>You need to know what public agent surfaces changed before a WooCommerce release ships.</p>
+      <p class="cell-fine">Start with a passive preflight, then verify owned evidence without creating an order or payment.</p>
     </div>
     <div class="cell">
       <div class="cell-no">B</div>
       <h4>You build stores for clients</h4>
-      <p>"Agent-readiness" is the retainer your clients haven't heard of yet.</p>
-      <p class="cell-fine">25 stores under one license, agent traffic reported in your own brand. Bill it as the new SEO.</p>
+      <p>You need the same finite checks and abstention rules across client stores.</p>
+      <p class="cell-fine">The Agency account covers connected-store surfaces; Release Gate access remains a separate contract.</p>
     </div>
   </div>
 </section>
@@ -503,11 +504,11 @@ footer .legal a:hover{color:var(--ink)}
     <div class="in2">
       <div class="kicker"><span class="no" style="color:#868294">04</span>Why now</div>
       <div class="grid" style="margin-top:24px">
-        <div><div class="v">1M+</div><div class="l">Shopify stores were auto-onboarded into ChatGPT shopping. No equivalent onboarding reached WooCommerce stores. This is the catch-up.</div></div>
-        <div><div class="v">+38<span>%</span></div><div class="l">higher conversion from AI-referred visits vs non-AI traffic (Adobe Analytics, July 2026)</div></div>
-        <div><div class="v">+138<span>%</span></div><div class="l">AI traffic to US retail sites, May 2026 YoY — the highest share Adobe has ever recorded</div></div>
+        <div><div class="v">5</div><div class="l">root MCP tools with schemas and behavioral annotations published from the live server.</div></div>
+        <div><div class="v">13</div><div class="l">passive public checks. An unreadable store receives no score and no invented diagnosis.</div></div>
+        <div><div class="v">0</div><div class="l">Release Gate settlements while organic use and billing invariants are still being measured.</div></div>
       </div>
-      <div class="src">sources: <a href="https://docs.stripe.com/agentic-commerce/acp" target="_blank" rel="noopener">Stripe ACP</a> · <a href="https://business.adobe.com/blog/generative-ai-powered-shopping-rises-with-traffic-to-retail-sites" target="_blank" rel="noopener">Adobe Analytics</a> · <a href="https://www.reuters.com/business/media-telecom/ai-referred-us-shoppers-browse-longer-spend-more-per-visit-data-shows-2026-06-15" target="_blank" rel="noopener">Reuters, Jun 2026</a></div>
+      <div class="src">verified by the live MCP contract, public preflight output, and settlement configuration.</div>
     </div>
   </div>
 </section>
@@ -562,8 +563,8 @@ footer .legal a:hover{color:var(--ink)}
   <div class="faq">
     <details open><summary>Is it safe to hand over API keys?</summary><p>You issue a read-only REST API key inside your own WordPress admin, scoped to your store, and you can revoke it in one click whenever you want. AgentReady can read your catalog; it cannot write, refund, or touch customer data. No card information ever passes through the service — every checkout completes on your own site.</p></details>
     <details><summary>Can an agent get a real total, with tax and shipping?</summary><p>Yes. An agent can open an ACP checkout session against your store and get the landed total — your own tax rules, your own shipping rates, the same numbers your checkout would show — because AgentReady asks your store rather than estimating. What it does not do is take the money or hold the stock: the session says so plainly and hands the buyer a link to finish on your site, through the payment methods you already accept.</p></details>
-    <details><summary>Which AI agents does this actually reach?</summary><p>Any agent that reads MCP endpoints or agent discovery files: ChatGPT shopping surfaces, Claude, and independent shopping agents such as NorthCinder. Your store's MCP server already speaks the Agentic Commerce Protocol (ACP 2026-04-17) for quoting, under the specification's own tool names, so an agent that has read the spec can price a basket against your store without being taught anything.</p></details>
-    <details><summary>How is this different from an SEO plugin?</summary><p>SEO plugins make you readable to Google's crawler. AgentReady makes you readable, in-stock-queryable, and buyable by shopping agents — a different file format, a different protocol, and a checkout path. Google sends humans; agents send buyers with their wallets already out.</p></details>
+    <details><summary>Which AI agents does this actually reach?</summary><p>The root endpoint is a standard JSON-RPC MCP server with five declared tools and machine-readable schemas. Compatibility does not guarantee discovery or calls by any named agent or marketplace; the live activity ledger reports observed calls separately.</p></details>
+    <details><summary>How is this different from an SEO plugin?</summary><p>SEO and AgentReady answer different questions. The public preflight reports observable WooCommerce and agent-protocol surfaces; the owner-authorized Release Gate compares signed aggregate evidence against a version-pinned contract.</p></details>
     <details><summary>What if I stop paying?</summary><p>The free tier keeps your feed, discovery file and cart handoff live forever — you just go back to a top-25-product limit instead of your full catalog. You don't lose visibility.</p></details>
   </div>
 </section>
