@@ -1,6 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { decisionFor, parseInputs, runAction } from "../action/index.mjs";
+
+const actionPath = fileURLToPath(new URL("../action/index.mjs", import.meta.url));
+
+test("GitHub Actions environment does not execute the action when the module is imported", () => {
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", `await import(${JSON.stringify(new URL("../action/index.mjs", import.meta.url).href)})`], {
+    env: { ...process.env, GITHUB_ACTIONS: "true" },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+});
+
+test("direct GitHub Action invocation still executes and fails closed without required input", () => {
+  const result = spawnSync(process.execPath, [actionPath], {
+    env: { ...process.env, GITHUB_ACTIONS: "true", "INPUT_STORE-ORIGIN": "" },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /::error::store-origin must be a public HTTPS origin/);
+});
 
 test("action inputs accept only an origin and the closed family set", () => {
   assert.deepEqual(parseInputs({

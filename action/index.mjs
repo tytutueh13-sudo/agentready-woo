@@ -1,4 +1,5 @@
 import { appendFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 export const ENDPOINT = "https://app.utilityhouse.xyz/channels/github-marketplace/preflight";
 export const FAMILIES = new Set(["woo", "robots", "jsonld", "mcp", "ucp", "acp"]);
@@ -61,6 +62,9 @@ export async function runAction({ env = process.env, fetchImpl = fetch, append =
   return { decision, state, unknowns, checks };
 }
 
-if (process.env.GITHUB_ACTIONS === "true") {
+const isDirectEntrypoint = Boolean(process.argv[1])
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (process.env.GITHUB_ACTIONS === "true" && isDirectEntrypoint) {
   runAction().catch(error => { process.stderr.write(`::error::${clean(error.message)}\n`); process.exitCode = 1; });
 }
