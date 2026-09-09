@@ -170,7 +170,7 @@ export function layout(title: string, body: string, navRight = ""): string {
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AgentReady / Woo">
 <meta property="og:title" content="${escapeHtml(title)} — AgentReady">
-<meta property="og:description" content="Makes self-hosted WooCommerce stores readable and buyable by AI shopping agents — one plugin, five minutes.">
+<meta property="og:description" content="Run a passive WooCommerce preflight, then make an owner-authorized release decision from signed aggregate evidence.">
 <meta property="og:image" content="https://app.utilityhouse.xyz/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -200,7 +200,7 @@ export function signupPage(error = "", email = "", googleEnabled = false): strin
 <div class="narrow" style="margin:0 auto">
 <div class="kicker"><span class="no">01</span>Account</div>
 <h1>Create your account</h1>
-<p class="lede">Free scan forever. Your top 25 products live as agent offers.</p>
+<p class="lede">Create an owner workspace for store verification and version-pinned Release Gate runs. The public preflight needs no account.</p>
 ${error ? `<div class="err">${escapeHtml(error)}</div>` : ""}
 ${googleEnabled ? `<div style="margin-bottom:16px">${GOOGLE_BTN}</div>
 <div style="display:flex;align-items:center;gap:12px;color:var(--ink3);font-size:12px;font-family:var(--mono);letter-spacing:.08em;margin-bottom:16px"><span style="flex:1;height:1px;background:var(--line)"></span>OR WITH EMAIL<span style="flex:1;height:1px;background:var(--line)"></span></div>` : ""}
@@ -238,7 +238,7 @@ ${googleEnabled ? `<div style="margin-bottom:16px">${GOOGLE_BTN}</div>
 <p style="margin:20px 0 0"><button class="btn" type="submit">Log in</button></p>
 </form>
 </div>
-<p>New here? <a href="/signup" style="color:var(--acc-dark)">Create an account</a> — the scan is free forever.</p>
+<p>New here? <a href="/signup" style="color:var(--acc-dark)">Create an owner workspace</a>. The public preflight remains free without an account.</p>
 <p style="margin-top:6px"><a href="/forgot-password" style="color:var(--ink3);font-size:14px">Forgot your password?</a></p>
 </div>`, AUTH_NAV);
 }

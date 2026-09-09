@@ -5,7 +5,9 @@ import { normalizeStoreUrl } from "./core/tenants.ts";
 export const PUBLIC_SCAN_TOOL_NAME = "scan_woo_store_readiness";
 
 export const PUBLIC_SCAN_TOOL_DESCRIPTION =
-  "Check whether a public WooCommerce storefront is readable by shopping agents. "
+  "Use ONLY for a general storefront audit, readiness score, or fix recommendations. "
+  + "Do NOT use it to inspect a specific update or release; use preflight_woo_store for that. "
+  + "Check whether a public WooCommerce storefront is readable by shopping agents. "
   + "Provide the store's HTTPS origin. The tool reads only public pages and the public WooCommerce Store API, "
   + "changes nothing, and returns aggregate checks and recommendations without product text or customer data. "
   + "When the storefront cannot be read at all, the tool abstains: state is UNREADABLE, score and grade are null, "

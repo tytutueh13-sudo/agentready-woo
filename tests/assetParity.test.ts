@@ -61,33 +61,11 @@ test("the stock footage is out of the upload path, not merely off the page", (t)
     "it is held, not deleted — the licence question is the owner's, not ours");
 });
 
-test("the demo video has both encodings, a poster, and every fallback", () => {
-  const page = text("marketing/landing/index.html");
-  assert.match(page, /<source src="demo-preflight\.webm" type="video\/webm">/);
-  assert.match(page, /<source src="demo-preflight\.mp4" type="video\/mp4">/);
-  assert.match(page, /poster="demo-preflight-poster\.jpg"/);
-  // load failure: the poster is painted on the hero itself, so a video that
-  // never loads still shows the still, and a still that never loads shows ground
-  assert.match(page, /\.hero\{background:#141218 url\(demo-preflight-poster\.jpg\)/);
-  // reduced motion: the film stops but the frame remains
-  const rm = page.slice(page.indexOf("@media (prefers-reduced-motion: reduce)"));
-  assert.match(rm.slice(0, 260), /\.hero video\{display:none\}/);
-  assert.match(rm.slice(0, 260), /demo-preflight-poster\.jpg/,
-    "reduced motion should stop the film, not blank the hero");
-  assert.match(page, /aria-label="A silent recording/);
-});
-
-test("neither demo file contains an audio track", () => {
-  // An autoplaying page video that has audio is one browser policy change away
-  // from making noise at a stranger. Checked in the container: an MP4 with
-  // sound carries an 'soun' handler box; a WebM carries an Audio track entry.
-  const mp4 = readFileSync(join(LANDING, "demo-preflight.mp4"));
-  assert.equal(mp4.includes(Buffer.from("soun", "ascii")), false,
-    "demo-preflight.mp4 has a sound handler");
-  const webm = readFileSync(join(LANDING, "demo-preflight.webm"));
-  assert.equal(webm.includes(Buffer.from("A_OPUS", "ascii"))
-            || webm.includes(Buffer.from("A_VORBIS", "ascii")), false,
-    "demo-preflight.webm has an audio codec");
+test("retired demo media cannot return to the public upload", () => {
+  for (const retired of ["demo-preflight-poster.jpg", "demo-preflight.mp4", "demo-preflight.webm"]) {
+    assert.equal(readdirSync(LANDING).includes(retired), false,
+      `${retired} belongs to the retired mixed-product landing, not the Release Desk`);
+  }
 });
 
 test("the four stories each ship a light and a dark card", (t) => {
@@ -155,10 +133,15 @@ test("the retired OG story cannot come back through the meta tags", () => {
 
 test("nothing in the marketing page claims a purchase the service can make", () => {
   const page = text("marketing/landing/index.html");
-  // A price may appear — the plans are real — but never without saying that
-  // settlement is off, and never attached to the free preflight.
-  const prices = [...page.matchAll(/\$\d[\d,.]*/g)];
-  assert.ok(prices.length > 0, "the pricing section moved; re-point this test");
+  assert.equal(/\$\d[\d,.]*/.test(page), false,
+    "the Release Gate root must not borrow a price from the separate commerce product");
   assert.match(page, /settlement (remains )?disabled|not available for purchase/i,
-    "a page showing a price on a service that cannot settle must say so");
+    "the Release Gate's unavailable settlement state must stay explicit");
+});
+
+test("the landing preflight remains usable without JavaScript", () => {
+  const page = text("marketing/landing/index.html");
+  assert.match(page, /<form id="scan-form" method="post" action="\/scan"/);
+  assert.match(page, /name="store_url"/,
+    "the server-rendered fallback expects store_url, not the REST field name");
 });

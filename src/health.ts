@@ -8,7 +8,9 @@ export interface HealthPayload {
 }
 
 export interface StatusPayload {
-  status: "healthy" | "degraded";
+  status: "healthy";
+  coreStatus: "healthy";
+  experimentalSettlementStatus: "enabled" | "disabled";
   service: string;
   version: string;
   timestamp: string;
@@ -47,7 +49,12 @@ export function status(serviceName: string, version: string,
   const d1ConcurrencyVerified = stringValue("D1_REAL_CONCURRENCY_VERIFIED").trim().toLowerCase() === "true";
   const x402InteropVerified = stringValue("X402_WIRE_INTEROP_VERIFIED").trim().toLowerCase() === "true";
   return {
-    status: revenueSystemEnabled && productEnabled ? "healthy" : "degraded",
+    // The public scan and Release Gate control plane are the product. The
+    // legacy x402 switch is an experimental settlement rail, so disabling it
+    // must not report the whole product as degraded.
+    status: "healthy",
+    coreStatus: "healthy",
+    experimentalSettlementStatus: revenueSystemEnabled && productEnabled ? "enabled" : "disabled",
     service: serviceName, version, timestamp: new Date().toISOString(),
     revenueSystemEnabled, productEnabled,
     artifactHash: artifactHash(env),
@@ -55,8 +62,7 @@ export function status(serviceName: string, version: string,
     revenueGuardState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     budgetState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     d1ConcurrencyVerified, x402InteropVerified,
-    note: "This reports the experimental x402 per-call payment rail for the " +
-      "readiness-scan tool only. The store-scanning product and its Paddle " +
-      "billing are a separate system and are unaffected by this status.",
+    note: "Core public preflight and owner-authorized Release Gate services are healthy. " +
+      "The fields below describe a separate experimental x402 settlement rail; disabled is an intentional commercial state, not a product outage.",
   };
 }

@@ -14,7 +14,7 @@ const packagerPath = fileURLToPath(new URL("../scripts/package-wordpress-plugin.
 
 function phpRollup(productCount: number | null): { state: string; count: number } {
   const wooStub = productCount === null ? "" : `function wc_get_products($args){ return array_fill(0, ${productCount}, 1); }`;
-  const run = spawnSync("php", ["-r", `define('ABSPATH', __DIR__); define('AGENTREADY_WOO_VERSION','1.1.0'); ${wooStub} require $argv[1]; echo json_encode(AgentReady_Woo::release_woo_rollup());`, classPath], { encoding: "utf8" });
+  const run = spawnSync("php", ["-r", `define('ABSPATH', __DIR__); define('AGENTREADY_WOO_VERSION','1.2.0'); ${wooStub} require $argv[1]; echo json_encode(AgentReady_Woo::release_woo_rollup());`, classPath], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   return JSON.parse(run.stdout) as { state: string; count: number };
 }
@@ -29,7 +29,7 @@ test("an empty signed Woo rollup carries the specific empty-sample reason", () =
   const packet = {
     schema_version: "2026-09-06", store_id: "store_aaaa", generated_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + 60_000).toISOString(), nonce: "nonce_aaaaaaaa", key_id: "current",
-    collector_version: "1.1.0", families: ["woo"], checks: { woo_rollup: { state: "FAIL", count: 0 } },
+    collector_version: "1.2.0", families: ["woo"], checks: { woo_rollup: { state: "FAIL", count: 0 } },
     digest: "a".repeat(64),
   } satisfies PluginEvidence;
   assert.equal(pluginEvidenceChecks(packet, ["woo"])[0]?.reasonCode, "WOO_SAMPLE_EMPTY");
@@ -42,12 +42,31 @@ test("WordPress registration uses a serializable uninstall callback and never re
   assert.doesNotMatch(main, /register_uninstall_hook\( __FILE__, function/);
   assert.doesNotMatch(implementation, /value="<\?php echo esc_attr\( \$ownership_key \); \?>"/);
   assert.match(implementation, /Ownership key \(leave blank to keep\)/);
-  for (const option of ["OPTION_WORKER_URL", "OPTION_OWNERSHIP_KEY", "OPTION_RELEASE_STORE_ID", "OPTION_RELEASE_CURRENT_KEY", "OPTION_RELEASE_PREVIOUS_KEY", "OPTION_RELEASE_KEY_ID"]) {
+  for (const option of ["OPTION_WORKER_URL", "OPTION_OWNERSHIP_KEY", "OPTION_RELEASE_STORE_ID", "OPTION_RELEASE_CURRENT_KEY", "OPTION_RELEASE_PREVIOUS_KEY", "OPTION_RELEASE_KEY_ID", "OPTION_RELEASE_ENABLED"]) {
     assert.match(implementation, new RegExp(`uninstall_release_evidence\\(\\).*?${option}`, "s"), `${option} must be removed on uninstall`);
   }
   assert.match(implementation, /allow_dashboard_origin/);
   assert.match(implementation, /\$origin !== \$expected/);
   assert.doesNotMatch(implementation, /Access-Control-Allow-Origin:\s*\*/);
+  assert.doesNotMatch(implementation, /This store is agent-ready|become buyable|Products are readable, in-stock queryable/i,
+    "saving a service URL must never manufacture a public readiness or purchase claim");
+  assert.match(implementation, /It does not claim that a store or release passed AgentReady checks/);
+  assert.match(implementation, /woocommerce\/products-query/);
+  assert.match(implementation, /agentready_store_abilities' => 'NONE_REGISTERED'/);
+  assert.doesNotMatch(implementation, /wp_register_ability\s*\(/,
+    "the Release Gate client must detect canonical Woo abilities without duplicating them");
+});
+
+test("the plugin accepts only the canonical service origin, never a path or credential", () => {
+  const code = `define('ABSPATH', __DIR__); define('AGENTREADY_WOO_VERSION','1.2.0'); function wp_parse_url($v){return parse_url($v);} require $argv[1]; $values=array_slice($argv,2); echo json_encode(array_map(array('AgentReady_Woo','sanitize_worker_origin'),$values));`;
+  const run = spawnSync("php", ["-r", code, classPath,
+    "https://app.utilityhouse.xyz", "https://app.utilityhouse.xyz/",
+    "https://app.utilityhouse.xyz/feed/store", "https://user:pass@app.utilityhouse.xyz",
+    "https://app.utilityhouse.xyz:444", "https://attacker.example"], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(JSON.parse(run.stdout), [
+    "https://app.utilityhouse.xyz", "https://app.utilityhouse.xyz", "", "", "", "",
+  ]);
 });
 
 test("the public plugin package is deterministic and contains only the runtime files", () => {

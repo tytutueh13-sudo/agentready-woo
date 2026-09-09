@@ -1,85 +1,95 @@
-# AgentReady Woo — agentic-commerce readiness for self-hosted WooCommerce
+# AgentReady Woo — WooCommerce Release Gate
 
-Live at **[app.utilityhouse.xyz](https://app.utilityhouse.xyz)**.
+Live service: **[app.utilityhouse.xyz](https://app.utilityhouse.xyz)**
 
-AgentReady reads a public WooCommerce storefront the way a shopping agent would
-and reports what it found. It reads public pages and the public WooCommerce
-Store API. It changes nothing, stores no customer data, and returns no product
-text.
+AgentReady runs a passive public preflight, then lets a verified store owner
+make a version-pinned release decision from signed, aggregate-only plugin
+evidence. A target that cannot be read returns an abstention rather than a
+fabricated low score.
 
-**When it cannot read a store, it says so.** A shop that is down, blocked or not
-yet public comes back as `state: UNREADABLE` with `score: null` — an abstention,
-not a low grade. That distinction is the point of the product: a number derived
-from our own failed requests is a number a merchant would act on.
+This is not a certification, ranking promise or checkout test. The root tools
+do not create orders, reserve inventory, send customer email or handle payment
+credentials.
 
-Diagnostic accuracy against real merchant stores is **unmeasured** and is
-claimed nowhere. This is not a certification, a visibility guarantee, or a
-checkout test.
+## Public MCP tools
 
-## The five tools
+`POST https://app.utilityhouse.xyz/mcp` speaks MCP JSON-RPC 2.0 and advertises
+five tools. Always use
+`tools/list` as the authoritative schema.
 
-`POST /mcp` speaks **JSON-RPC 2.0**. `tools/list` returns five tools.
-
-Two need no credentials at all:
-
-| Tool | What it answers |
+| Tool | Use it for |
 | --- | --- |
-| `scan_woo_store_readiness` | Is this public storefront readable by shopping agents? |
-| `preflight_woo_store` | The same question for one origin, passive and read-only. |
+| `scan_woo_store_readiness` | A general public-store audit, score and fix list |
+| `preflight_woo_store` | Protocol-family evidence for a specific update or release |
 
-Three require the merchant's own verified ownership and are unreachable
-without it:
+Three additional tools start, read and claim an owner-authorized Release Gate
+run. They require a scoped bearer token and verified store ownership.
 
-| Tool | What it does |
-| --- | --- |
-| `start_woo_release_verification` | Starts a release run against pinned protocol evidence. |
-| `get_woo_release_verification` | Reads that run's state. |
-| `claim_woo_release_result` | Claims the result packet once, idempotently. |
+The general scanner returns `state: UNREADABLE` with `score: null` when it
+cannot read the target. Diagnostic accuracy against real merchant stores is
+unmeasured. Release Gate settlement is disabled.
 
-There is also `POST /api/v2/preflight`, documented in
-`mcp-registry/openapi-preflight.yaml` as an OpenAPI 3.1 document. A `200` from
-it does **not** mean the store could be read — check `state` before using
-`checks`.
+## GitHub Action
 
-## Rate limits, as they are
+The repository includes a dependency-free Node 20 action. It calls the same
+public preflight contract, writes a reason-coded job summary and fails only on
+an explicit `HOLD`. `BLOCKED` and `UNMEASURED` remain abstentions.
 
-Three calls per target origin per day, and ten per calling IP per day.
-Exceeding either returns `429` with `TARGET_RATE_LIMITED`. These are the real
-numbers, not a friendlier pair.
+```yaml
+- name: AgentReady Woo preflight
+  uses: tytutueh13-sudo/agentready-woo@v1
+  with:
+    store-origin: https://shop.example
+    families: woo,robots,jsonld,mcp
+```
 
-## Settlement
+The public endpoint allows three calls per target origin per day and ten calls
+per calling IP per day. The action changes nothing on the store.
 
-**Settlement is disabled.** No route on this service can take money. Prices
-appear on the marketing page as prices for a thing that is not yet purchasable,
-and every place one is shown says so. The Paddle integration and the D1
-financial ledger exist and are exercised by the test suite; the flag that would
-let them move money is deliberately absent, and the x402 configuration points
-at Base **Sepolia** testnet.
+## WordPress plugin
 
-## The WordPress plugin
+`wordpress-plugin/agentready-woo` is version 1.2.0. It provides a useful local
+readiness snapshot before connection. Activation neither contacts AgentReady
+nor creates a schedule. An administrator must make a one-time manual send or
+separately opt in to a daily signed aggregate evidence schedule.
 
-`wordpress-plugin/agentready-woo` publishes `/.well-known/agenticweb.md` and,
-when a merchant connects it, sends one signed **aggregate** evidence envelope —
-a count and a check result, never a product, shopper, order, payment, address or
-credential. It is verified against real WordPress and WooCommerce with HPOS both
-on and off; see `wordpress-plugin/agentready-woo/INTEGRATION-HARNESS.md`.
+The evidence envelope contains version identifiers, opaque store/run fields,
+timestamps, nonce, family name and aggregate check state/count. It contains no
+customer, order, payment, email, address, product description, URL, credential
+or raw log field.
 
-## Local development
+Build the deterministic plugin package with:
+
+```bash
+npm run build:plugin
+```
+
+Try the local-only snapshot without touching a real store in the
+[version-pinned WordPress Playground demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2Ftytutueh13-sudo%2Fagentready-woo%2Fv1.2.0%2Fwordpress-plugin%2Fagentready-woo%2Fblueprints%2Fblueprint.json).
+The disposable site configures no AgentReady endpoint and sends no evidence.
+
+## REST preflight
+
+`POST https://app.utilityhouse.xyz/api/v2/preflight` is documented in
+`mcp-registry/openapi-preflight.yaml`. HTTP 200 does not necessarily mean the
+target was measurable; inspect the returned `state` and per-family checks.
+
+## Separate commerce surface
+
+An authenticated account may connect read-only WooCommerce credentials to a
+store-bound catalog, offer and signed cart-handoff surface at `/mcp/{store_id}`.
+That is a separate product contract and does not grant Release Gate access.
+Checkout and payment remain on the merchant's store.
+
+## Development
 
 ```bash
 npm install
 npm run typecheck
 npm test
-npm run dev:worker
+npm run test:wordpress
 ```
 
-`npm test` uses Node's own test runner. There is no build step: the Worker runs
-TypeScript directly under Node 25 type-stripping, which is why parameter
-properties do not appear anywhere in `src/`.
-
-## What this repository is not
-
-It is a public mirror of one service from a private monorepo. It is not the
-deployment source, and `wrangler.toml` here carries a placeholder database id
-rather than the real one. Deploys are performed from the private repository by
-one operator; nothing in this repository deploys anything.
+This public repository is a review mirror, not the production deployment
+source. Its `wrangler.toml` carries a placeholder database id. Deployment is
+performed from the private monorepo.

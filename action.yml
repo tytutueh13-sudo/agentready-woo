@@ -1,0 +1,30 @@
+name: AgentReady Woo Release Preflight
+description: Run a read-only WooCommerce protocol preflight and fail only on an explicit HOLD.
+author: UtilityHouse
+branding:
+  icon: check-square
+  color: orange
+inputs:
+  store-origin:
+    description: Public HTTPS origin of the WooCommerce store.
+    required: true
+  families:
+    description: Comma-separated families (woo, robots, jsonld, mcp, ucp, acp).
+    required: false
+    default: woo,robots,jsonld,mcp,ucp,acp
+  fail-on-hold:
+    description: Fail the workflow when the preflight returns an explicit HOLD.
+    required: false
+    default: "true"
+outputs:
+  decision:
+    description: RELEASE, HOLD, PARTIAL or ABSTAIN.
+  state:
+    description: The server's unmodified preflight state.
+  observed-at:
+    description: Server observation timestamp when available.
+  unknowns:
+    description: JSON array of finite unknown reason codes.
+runs:
+  using: node20
+  main: action/index.mjs

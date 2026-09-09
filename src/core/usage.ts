@@ -11,6 +11,8 @@ export type UsageSurface = typeof USAGE_SURFACES[number];
 export type UsageChannel = typeof USAGE_CHANNELS[number];
 export type UsageOutcome = typeof USAGE_OUTCOMES[number];
 
+const OPERATOR_MCP_PATH = "/ops/mcp";
+
 const MCP_CHANNEL_PATHS: Record<string, UsageChannel> = {
   "/channels/mcp-registry/mcp": "mcp_registry",
   "/channels/smithery/mcp": "smithery",
@@ -35,6 +37,27 @@ export function preflightChannelForPath(path: string): UsageChannel | null {
   return PREFLIGHT_CHANNEL_PATHS[path] ?? null;
 }
 
+/** A smoke test is an operator event only when it uses the dedicated path and
+ * proves possession of the operations secret. The path alone is not an
+ * attribution label, and the public endpoint cannot opt itself out of demand
+ * accounting with a query parameter or User-Agent. */
+export function operatorMcpAuthorized(
+  request: Request, opsToken: string | undefined,
+): boolean {
+  if (new URL(request.url).pathname !== OPERATOR_MCP_PATH) return false;
+  const configured = opsToken ?? "";
+  if (configured.length < 32) return false;
+  return constantTimeEqual(request.headers.get("authorization") ?? "", `Bearer ${configured}`);
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  let diff = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 /** Operator classification requires the existing operations secret. A label,
  * query parameter, User-Agent or IP can never declare itself operator. */
 export function usageChannel(
@@ -44,11 +67,7 @@ export function usageChannel(
   if (configured.length < 32) return fallback;
   const supplied = request.headers.get("x-agentready-operator") ?? "";
   const expected = `Bearer ${configured}`;
-  let diff = supplied.length === expected.length ? 0 : 1;
-  for (let i = 0; i < Math.max(supplied.length, expected.length); i++) {
-    diff |= (supplied.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
-  }
-  return diff === 0 ? "operator" : fallback;
+  return constantTimeEqual(supplied, expected) ? "operator" : fallback;
 }
 
 export function classifyToolResult(ok: boolean, text: string): UsageOutcome {

@@ -1,4 +1,5 @@
-FROM wordpress:cli-php8.3
+ARG WP_CLI_IMAGE=wordpress:cli-php8.3
+FROM ${WP_CLI_IMAGE}
 
 USER root
 COPY wordpress-plugin/agentready-woo /opt/agentready-woo

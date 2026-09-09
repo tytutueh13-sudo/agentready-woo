@@ -45,6 +45,13 @@ test("every manifest carries the same version the code reports", () => {
   }
 });
 
+test("the public package and GitHub Action carry the product version", () => {
+  assert.equal(json("package.json").version, AGENTREADY_VERSION);
+  assert.match(text("action/index.mjs"), new RegExp(`agentready-woo-action/${AGENTREADY_VERSION.replaceAll(".", "\\.")}`));
+  assert.match(text("wordpress-plugin/agentready-woo/agentready-woo.php"),
+    new RegExp(`Version:\\s+${AGENTREADY_VERSION.replaceAll(".", "\\.")}`));
+});
+
 test("the two server manifests are the same document", () => {
   assert.deepEqual(json("server.json"), json("mcp-registry/server.json"),
     "one of these gets published and the other gets read; they cannot differ");
@@ -131,6 +138,14 @@ test("a tool that writes does not claim to be read-only", () => {
 // -- the public page cannot outrun the product -----------------------------
 
 const LANDING = "marketing/landing/index.html";
+const COMMERCE = "marketing/landing/commerce.html";
+
+test("the internal product manifest describes the current Release Gate product", () => {
+  const manifest = json("product.json");
+  assert.match(String(manifest.description), /passive public WooCommerce preflight/i);
+  assert.match(String(manifest.description), /settlement is currently disabled/i);
+  assert.doesNotMatch(String(manifest.description), /top-25-product feed|create signed cart links/i);
+});
 
 test("the free scan is never described as paid", () => {
   const page = text(LANDING);
@@ -143,20 +158,15 @@ test("the free scan is never described as paid", () => {
 });
 
 test("no plan is presented as Release Gate entitlement", () => {
-  const page = text(LANDING);
-  assert.match(page, /no plan on this page grants access to it/i,
-    "the plans and the Gate are separate commercial objects and the page must say so");
+  const commerce = text(COMMERCE);
+  assert.match(commerce, /Commerce plans do not include or imply Release Gate entitlement/i,
+    "the separate commerce surface must explicitly deny Release Gate entitlement");
 });
 
-test("the Release Gate price is never shown without its disabled-settlement notice", () => {
+test("the Release Gate root carries no purchasable price while settlement is disabled", () => {
   const page = text(LANDING);
-  const matches = [...page.matchAll(/Verify this release[^<]*/gi)];
-  assert.ok(matches.length > 0, "the Gate price line moved; re-point this test");
-  for (const match of matches) {
-    const window = page.slice(match.index ?? 0, (match.index ?? 0) + 400);
-    assert.match(window, /settlement remains disabled|not available for purchase/i,
-      "a Release Gate price must carry its disabled-settlement notice");
-  }
+  assert.equal(/\$\d[\d,.]*/.test(page), false);
+  assert.match(page, /Release Gate settlement remains disabled/i);
 });
 
 test("the stale one-tool and non-JSON-RPC claims have not come back", () => {
@@ -255,6 +265,15 @@ test("every policy page reaches support and security", () => {
     const html = text(`marketing/landing/${page}`);
     assert.match(html, /href="\/support"/, `${page} does not link support`);
     assert.match(html, /href="\/security"/, `${page} does not link security`);
+  }
+});
+
+test("retired pricing anchors point to the separate commerce surface", () => {
+  for (const page of ["privacy.html", "terms.html", "refund-policy.html"]) {
+    const html = text(`marketing/landing/${page}`);
+    assert.equal(html.includes('/#pricing'), false, `${page} still points at the removed pricing section`);
+    assert.match(html, /href="\/commerce">Commerce plans<\/a>/,
+      `${page} must route account-product pricing away from the Release Gate root`);
   }
 });
 
