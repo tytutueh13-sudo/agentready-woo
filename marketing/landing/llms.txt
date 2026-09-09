@@ -4,13 +4,13 @@
 
 ## Public entry points
 
-- Website and free browser scan: https://app.utilityhouse.xyz/
-- MCP server: https://app.utilityhouse.xyz/mcp
-- REST preflight: POST https://app.utilityhouse.xyz/api/v2/preflight
-- OpenAPI document: https://github.com/tytutueh13-sudo/agentready-woo/blob/main/openapi-preflight.yaml
-- Support: https://app.utilityhouse.xyz/support
-- Security: https://app.utilityhouse.xyz/security
-- Status: https://app.utilityhouse.xyz/status
+- [Website and free browser scan](https://app.utilityhouse.xyz/)
+- [MCP server](https://app.utilityhouse.xyz/mcp)
+- [REST preflight](https://app.utilityhouse.xyz/api/v2/preflight) — POST only
+- [OpenAPI document](https://github.com/tytutueh13-sudo/agentready-woo/blob/main/openapi-preflight.yaml)
+- [Support](https://app.utilityhouse.xyz/support)
+- [Security](https://app.utilityhouse.xyz/security)
+- [Status](https://app.utilityhouse.xyz/status)
 
 ## Root MCP tools
 

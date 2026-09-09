@@ -31,7 +31,7 @@ for (const path of ["/", "/health", "/status", "/support", "/security",
 
 const health = await (await get("/health")).json();
 ok(health.status === "healthy", "health is not healthy");
-ok(health.version === "1.1.0", `unexpected health version ${health.version}`);
+ok(health.version === "1.2.0", `unexpected health version ${health.version}`);
 ok(typeof health.artifactHash === "string" && health.artifactHash.length > 0,
   "health does not expose a Cloudflare deployment identity");
 

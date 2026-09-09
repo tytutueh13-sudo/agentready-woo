@@ -201,8 +201,6 @@ export async function scanStore(
   const score = unreadable ? null : Math.round((passedWeight / totalWeight) * 100);
   const grade = score === null ? null : score >= 80 ? "good" : score >= 50 ? "fair" : "poor";
 
-  if (apiOk) recommendations.push("Your catalog is readable. Connect an AgentReady feed to become buyable: signed cart handoff + agent analytics.");
-
   return {
     storeUrl,
     state: unreadable ? "UNREADABLE" : "SCORED",

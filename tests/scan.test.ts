@@ -37,6 +37,7 @@ test("a well-configured store scores good with no blocking recommendations", asy
   assert.ok(result.checks.every(c => typeof c.ok === "boolean"));
   const failed = result.checks.filter(c => !c.ok).map(c => c.id);
   assert.deepEqual(failed, [], `unexpected failures: ${failed.join(",")}`);
+  assert.deepEqual(result.recommendations, [], "a passing scan must not upsell an unrelated surface");
 });
 
 // The scan used to answer this case with a number. A store that answered

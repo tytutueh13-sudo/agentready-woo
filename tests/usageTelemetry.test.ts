@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AppStore } from "../src/core/appStore.ts";
 import {
-  classifyToolResult, mcpChannelForPath, preflightChannelForPath, usageChannel,
+  classifyToolResult, mcpChannelForPath, operatorMcpAuthorized, preflightChannelForPath, usageChannel,
 } from "../src/core/usage.ts";
 import { sqliteD1 } from "./helpers/sqlite.ts";
 
@@ -22,6 +22,20 @@ test("only the operations secret can classify an operator probe", () => {
   assert.equal(usageChannel(new Request("https://example.test/mcp", {
     headers: { "x-agentready-operator": "Bearer wrong" },
   }), secret, "mcp_registry"), "mcp_registry");
+});
+
+test("the dedicated operator MCP route requires its exact path and operations bearer", () => {
+  const secret = "o".repeat(40);
+  assert.equal(operatorMcpAuthorized(new Request("https://worker.example/ops/mcp", {
+    headers: { authorization: `Bearer ${secret}` },
+  }), secret), true);
+  assert.equal(operatorMcpAuthorized(new Request("https://worker.example/mcp", {
+    headers: { authorization: `Bearer ${secret}` },
+  }), secret), false);
+  assert.equal(operatorMcpAuthorized(new Request("https://worker.example/ops/mcp", {
+    headers: { authorization: "Bearer wrong" },
+  }), secret), false);
+  assert.equal(operatorMcpAuthorized(new Request("https://worker.example/ops/mcp"), undefined), false);
 });
 
 test("tool outcomes distinguish answers, abstentions, replays and failures", () => {

@@ -26,6 +26,12 @@ test("AI discovery text names the five-tool Release Gate truth", () => {
   assert.doesNotMatch(llms, /Four tools|top-25 product feed/);
 });
 
+test("the public page links to the deployed discovery path", () => {
+  const html = read("marketing/landing/index.html");
+  assert.match(html, /href="\/\.well-known\/agenticweb\.md"/);
+  assert.doesNotMatch(html, /agentic-web\.md/);
+});
+
 test("sitemap includes the public support and security surfaces", () => {
   const sitemap = read("marketing/landing/sitemap.xml");
   assert.match(sitemap, /https:\/\/app\.utilityhouse\.xyz\/support/);
@@ -41,9 +47,9 @@ test("deployment binds Cloudflare version metadata for artifact identity", () =>
 test("WordPress package describes the shipped Release Gate instead of the retired launch story", () => {
   const header = read("wordpress-plugin/agentready-woo/agentready-woo.php");
   const readme = read("wordpress-plugin/agentready-woo/readme.txt");
-  assert.match(header, /Version:\s+1\.1\.0/);
-  assert.match(header, /AGENTREADY_WOO_VERSION', '1\.1\.0'/);
-  assert.match(readme, /Stable tag: 1\.1\.0/);
+  assert.match(header, /Version:\s+1\.2\.0/);
+  assert.match(header, /AGENTREADY_WOO_VERSION', '1\.2\.0'/);
+  assert.match(readme, /Stable tag: 1\.2\.0/);
   assert.match(readme, /signed, aggregate-only Release Gate evidence/i);
   assert.match(readme, /settlement is disabled/i);
   for (const stale of ["More than a million Shopify", "+38%", "+138%", "wallets already out"]) {

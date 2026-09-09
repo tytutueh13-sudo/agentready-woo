@@ -1,0 +1,85 @@
+{
+  "product_id": "agentready-woo",
+  "name": "AgentReady Woo \u2014 evidence-led WooCommerce release gate",
+  "slug": "agentready-woo-agentic-commerce-readiness-toolkit-for-self-h",
+  "product_type": "mcp_plus_web",
+  "product_route": "mcp_plus_web",
+  "description": "A passive public WooCommerce preflight plus an owner-authorized release gate. Public checks return reason-coded evidence or abstain when a store cannot be measured. The release gate uses version-pinned protocol fixtures and signed aggregate-only WordPress plugin evidence; it does not receive customer, order, payment, product-description, credential, or raw-log data. Release Gate settlement is currently disabled. A separate store-bound commerce surface remains available to authenticated merchants and does not imply Release Gate entitlement.",
+  "target_user": "WooCommerce store owners and WordPress agencies deciding whether an agent-facing release is ready to ship.",
+  "tools": [
+    {
+      "name": "agentready_woo_agentic_commerce_readiness_toolkit_for_self_h",
+      "description": "Run a public WooCommerce readiness scan or protocol preflight, or an owner-authorized version-pinned release verification. Unreadable evidence produces an abstention rather than a fabricated score.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      }
+    }
+  ],
+  "endpoints": [
+    {
+      "path": "/api/v1/agentready_woo_agentic_commerce_readiness_toolkit_for_self_h",
+      "method": "POST",
+      "description": "Run the canonical AgentReady Woo readiness and release-gate surface. Use the published MCP and OpenAPI contracts for the five current tools."
+    }
+  ],
+  "inputs": {},
+  "outputs": {},
+  "data_sources": [
+    "public_woocommerce_surfaces",
+    "signed_aggregate_plugin_evidence",
+    "version_pinned_protocol_fixtures"
+  ],
+  "upstream_services": [
+    "public_store_http",
+    "wordpress_plugin_aggregate_evidence",
+    "mcp_streamable_http_transport"
+  ],
+  "pricing": {
+    "monetization_type": "freemium",
+    "price_per_call": 0.0,
+    "currency": "USD",
+    "note": "The public scan and preflight are free. Release Gate settlement is disabled and no Release Gate entitlement is currently sold. Separate commerce plans are documented at /commerce and do not grant Release Gate access."
+  },
+  "rate_limits": {
+    "window_seconds": 60.0,
+    "max_requests": 30
+  },
+  "budgets": {
+    "per_request_max_cost": 0.5,
+    "daily_max_cost": 5.0,
+    "monthly_max_cost": 300.0,
+    "per_user_daily_cost": 2.0,
+    "per_product_daily_cost": 20.0,
+    "min_gross_margin_ratio": 0.7,
+    "min_price_multiplier": 3.0
+  },
+  "cache_policy": {
+    "enabled": true,
+    "ttl_seconds": 3600.0
+  },
+  "auth_policy": {
+    "requires_auth": false,
+    "method": "mixed_public_and_scoped_bearer"
+  },
+  "payment_policy": {
+    "provider": "none",
+    "required": false
+  },
+  "security_policy": {
+    "max_input_size_bytes": 65536,
+    "request_timeout_seconds": 10.0,
+    "allowed_outbound_hosts": []
+  },
+  "deployment_target": "cloudflare_workers",
+  "template_version": "1.0.0",
+  "builder_version": "1.0.0",
+  "created_at": "2026-08-24T07:34:00.240755+00:00",
+  "spec_hash": "1783bc33361bdeb4"
+}

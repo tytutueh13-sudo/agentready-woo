@@ -1,0 +1,51 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "meta": {
+    "title": "AgentReady Release Gate for WooCommerce",
+    "description": "Try the local-only AgentReady readiness snapshot in a disposable WooCommerce site. No Release Gate connection or outbound evidence is configured.",
+    "author": "UtilityHouse",
+    "categories": ["woocommerce", "plugin-demo", "privacy"]
+  },
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "features": {
+    "networking": true
+  },
+  "landingPage": "/wp-admin/admin.php?page=agentready-woo",
+  "login": true,
+  "siteOptions": {
+    "blogname": "AgentReady Playground"
+  },
+  "steps": [
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "woocommerce"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "git:directory",
+        "url": "https://github.com/tytutueh13-sudo/agentready-woo",
+        "path": "wordpress-plugin/agentready-woo",
+        "ref": "v1.2.0",
+        "refType": "tag"
+      },
+      "options": {
+        "activate": true,
+        "targetFolderName": "agentready-woo"
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require_once '/wordpress/wp-load.php'; if ( class_exists( 'WC_Product_Simple' ) ) { $product = new WC_Product_Simple(); $product->set_name( 'Disposable Playground product' ); $product->set_regular_price( '10.00' ); $product->set_status( 'publish' ); $product->save(); }"
+    }
+  ]
+}

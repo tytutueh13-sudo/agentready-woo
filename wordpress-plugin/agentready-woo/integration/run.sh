@@ -6,14 +6,24 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "  ok  - $*"; }
 
 echo "== Installing a disposable WordPress + WooCommerce store =="
-$WP core download --force --quiet
+if [ "${AGENTREADY_WP_VERSION}" = "latest" ]; then
+  $WP core download --force --quiet
+else
+  $WP core download --version="${AGENTREADY_WP_VERSION}" --force --quiet
+fi
 $WP config create --dbname=wordpress --dbuser=wordpress --dbpass=agentready-harness --dbhost=db --force --quiet
 $WP core install --url=http://localhost --title="AgentReady harness" --admin_user=admin --admin_password=harness-only --admin_email=admin@example.invalid --skip-email --quiet
-$WP plugin install woocommerce --activate --quiet
-cp -R /opt/agentready-woo /var/www/html/wp-content/plugins/agentready-woo
+if [ "${AGENTREADY_WOO_VERSION}" = "latest" ]; then
+  $WP plugin install woocommerce --activate --quiet
+else
+  $WP plugin install woocommerce --version="${AGENTREADY_WOO_VERSION}" --activate --quiet
+fi
+mkdir -p /var/www/html/wp-content/plugins/agentready-woo/includes
+cp /opt/agentready-woo/agentready-woo.php /opt/agentready-woo/readme.txt /var/www/html/wp-content/plugins/agentready-woo/
+cp /opt/agentready-woo/includes/class-agentready-woo.php /var/www/html/wp-content/plugins/agentready-woo/includes/
 
 echo "== HPOS: ${AGENTREADY_HPOS} =="
-if [ "${AGENTREADY_HPOS}" = "on" ]; then
+if [ "${AGENTREADY_PLUGIN_CHECK}" = "1" ]; then
   $WP option update woocommerce_custom_orders_table_enabled yes --quiet || true
   $WP wc hpos enable --user=admin 2>/dev/null || true
 else
@@ -22,14 +32,21 @@ fi
 
 echo "== Activation is inert until explicitly connected =="
 $WP plugin activate agentready-woo --quiet
+if [ "${AGENTREADY_HPOS}" = "on" ]; then
+  $WP plugin install plugin-check --activate --quiet
+  plugin_check=$($WP plugin check agentready-woo --format=table)
+  echo "$plugin_check"
+  echo "$plugin_check" | grep -q $'\tERROR\t' && fail "official WordPress Plugin Check reported an error"
+  ok "official WordPress Plugin Check completed"
+fi
 for option in agentready_woo_worker_url agentready_woo_release_gate_key agentready_woo_release_store_id agentready_woo_release_evidence_current; do
   value=$($WP option get "$option" 2>/dev/null || true)
   [ -z "$value" ] || fail "$option existed before connection"
 done
 scheduled=$($WP cron event list --fields=hook --format=csv 2>/dev/null | grep -c '^agentready_woo_release_evidence$' || true)
-[ "$scheduled" = "1" ] || fail "expected one daily evidence event, got $scheduled"
+[ "$scheduled" = "0" ] || fail "activation created an evidence schedule without consent"
 $WP eval 'if (AgentReady_Woo::run_release_evidence() !== false) { exit(1); }' || fail "unconfigured evidence sender was not inert"
-ok "activation scheduled one inert aggregate collector and stored no credentials"
+ok "activation made no external request, created no schedule and stored no credentials"
 
 echo "== A real WooCommerce catalogue produces only an aggregate rollup =="
 $WP eval '$product = new WC_Product_Simple(); $product->set_name("Disposable fixture"); $product->set_regular_price("10.00"); $product->set_status("publish"); $product->save();' --quiet
@@ -42,11 +59,27 @@ echo "== Connection bundle values work and remain hidden in admin HTML =="
 store_id="store_harness001"
 evidence_key="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 ownership_key="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-$WP option update agentready_woo_worker_url https://app.example --quiet
+$WP option update agentready_woo_worker_url https://app.utilityhouse.xyz --quiet
 $WP option update agentready_woo_release_store_id "$store_id" --quiet
 $WP option update agentready_woo_release_evidence_current "$evidence_key" --quiet
 $WP option update agentready_woo_release_evidence_key_id current --quiet
 $WP option update agentready_woo_release_gate_key "$ownership_key" --quiet
+snapshot=$($WP eval 'echo wp_json_encode(AgentReady_Woo::local_readiness_snapshot());')
+echo "$snapshot" | grep -q '"outbound_evidence":"OFF"' || fail "local snapshot did not keep outbound evidence off"
+if [ "${AGENTREADY_WP_VERSION}" = "latest" ]; then
+  echo "$snapshot" | grep -q '"wordpress_abilities_api":"AVAILABLE"' || fail "local snapshot did not detect the WordPress Abilities API"
+else
+  echo "$snapshot" | grep -q '"wordpress_abilities_api":"NOT_AVAILABLE"' || fail "old WordPress compatibility did not abstain on the absent Abilities API"
+fi
+echo "$snapshot" | grep -q '"agentready_store_abilities":"NONE_REGISTERED"' || fail "plugin claimed or registered overlapping store abilities"
+scheduled=$($WP cron event list --fields=hook --format=csv 2>/dev/null | grep -c '^agentready_woo_release_evidence$' || true)
+[ "$scheduled" = "0" ] || fail "credentials alone enabled the schedule"
+ok "local snapshot is useful while credentials alone remain inert"
+
+$WP option update agentready_woo_release_evidence_enabled 1 --quiet
+$WP eval 'AgentReady_Woo::sync_release_evidence_schedule();'
+scheduled=$($WP cron event list --fields=hook --format=csv 2>/dev/null | grep -c '^agentready_woo_release_evidence$' || true)
+[ "$scheduled" = "1" ] || fail "explicit evidence consent did not create one daily schedule"
 admin_html=$($WP eval 'wp_set_current_user(1); ob_start(); AgentReady_Woo::settings_page(); echo ob_get_clean();')
 echo "$admin_html" | grep -q "$evidence_key" && fail "evidence key rendered in admin HTML"
 echo "$admin_html" | grep -q "$ownership_key" && fail "ownership key rendered in admin HTML"
@@ -76,7 +109,7 @@ add_filter("pre_http_request", function($pre, $args, $url) {
   sort($allowed, SORT_STRING);
   $signature = isset($args["headers"]["X-AgentReady-Evidence-Signature"]) ? $args["headers"]["X-AgentReady-Evidence-Signature"] : "";
   $serialized = wp_json_encode($body);
-  $agentready_capture_ok = $url === "https://app.example/api/v2/release-evidence"
+  $agentready_capture_ok = $url === "https://app.utilityhouse.xyz/api/v2/release-evidence"
     && preg_match("/^[a-f0-9]{64}$/", $signature)
     && $top === $allowed
     && isset($body["checks"]["woo_rollup"])
@@ -98,7 +131,7 @@ ok "invalid ids and keys are rejected"
 echo "== Uninstall removes every AgentReady option and cron =="
 $WP plugin deactivate agentready-woo --quiet
 $WP plugin uninstall agentready-woo --skip-delete --quiet
-for option in agentready_woo_worker_url agentready_woo_release_gate_key agentready_woo_release_store_id agentready_woo_release_evidence_current agentready_woo_release_evidence_previous agentready_woo_release_evidence_key_id; do
+for option in agentready_woo_worker_url agentready_woo_release_gate_key agentready_woo_release_store_id agentready_woo_release_evidence_current agentready_woo_release_evidence_previous agentready_woo_release_evidence_key_id agentready_woo_release_evidence_enabled; do
   value=$($WP option get "$option" 2>/dev/null || true)
   [ -z "$value" ] || fail "$option survived uninstall"
 done

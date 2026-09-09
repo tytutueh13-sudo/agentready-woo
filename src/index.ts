@@ -22,7 +22,7 @@ import type { WorkersAiBinding } from "./core/aiJudge.ts";
 import { releaseGateMcpTools } from "./releaseGate/mcpTools.ts";
 import type { McpTool } from "./core/mcpRpc.ts";
 import {
-  classifyToolResult, mcpChannelForPath, usageChannel,
+  classifyToolResult, mcpChannelForPath, operatorMcpAuthorized, usageChannel,
   type UsageChannel, type UsageOutcome,
 } from "./core/usage.ts";
 import {
@@ -60,6 +60,15 @@ const DAILY_CRON = "0 3 * * *";
 // Section 37: bound request size before parsing the body. maxInputSizeBytes
 // comes from ProductSpec.security_policy — see product.json.
 const MAX_INPUT_SIZE_BYTES = 65536;
+
+// Public ownership proof for the Glama directory. Glama requires this exact
+// document to remain available on the connector origin after verification.
+// It is deliberately served before the D1 readiness gate: directory
+// ownership must not disappear during an unrelated database incident.
+const GLAMA_CLAIM_DOCUMENT = {
+  $schema: "https://glama.ai/mcp/schemas/connector.json",
+  claim: "glama_claim_SURSLzr6kHLvRUDDcPcTzQp_7C7b_G5H",
+} as const;
 
 function rejectIfTooLarge(request: Request): Response | null {
   const contentLength = request.headers.get("content-length");
@@ -263,6 +272,14 @@ export default {
 /** Everything the Worker answers, before the security headers go on. */
 async function route(request: Request, env: WorkerEnv): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/.well-known/glama.json" && request.method === "GET") {
+      return new Response(JSON.stringify(GLAMA_CLAIM_DOCUMENT), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "public, max-age=300",
+        },
+      });
+    }
     if (!env.FINANCIAL_DB) {
       return new Response(JSON.stringify({ error: "durable financial store is not configured" }), {
         status: 503, headers: { "content-type": "application/json" },
@@ -349,8 +366,8 @@ p{color:var(--ink2);margin-bottom:18px}
 <body>
 <div class="wrap">
 <h1><em>AgentReady</em> / Woo</h1>
-<p>Makes self-hosted WooCommerce stores readable and buyable by AI shopping agents. Checkout always completes on the merchant's own store.</p>
-<p><a class="btn" href="/scan">Check your store — free</a></p>
+<p>Run a passive WooCommerce preflight, then make an owner-authorized release decision from signed aggregate evidence. No order or payment is created.</p>
+<p><a class="btn" href="/scan">Run the public preflight — free</a></p>
 <div class="links">
 <a href="/signup">Merchant login</a>
 <a href="/health">Health</a>
@@ -363,7 +380,14 @@ p{color:var(--ink2);margin-bottom:18px}
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
     const attributedMcpChannel = mcpChannelForPath(url.pathname);
-    if ((url.pathname === "/mcp" || attributedMcpChannel !== null) && request.method === "POST") {
+    const operatorMcp = url.pathname === "/ops/mcp";
+    if (operatorMcp && !operatorMcpAuthorized(request, env.OPS_TOKEN)) {
+      return new Response(JSON.stringify({ error: "operator authorization required" }), {
+        status: env.OPS_TOKEN && env.OPS_TOKEN.length >= 32 ? 401 : 503,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if ((url.pathname === "/mcp" || attributedMcpChannel !== null || operatorMcp) && request.method === "POST") {
       const tooLarge = rejectIfTooLarge(request);
       if (tooLarge) return tooLarge;
       const raw = (await request.json()) as unknown;
@@ -372,7 +396,9 @@ p{color:var(--ink2);margin-bottom:18px}
       // catalogue and cart tools remain at /mcp/{store_id}; publishing those
       // without a real tenant would advertise a tool no caller can use.
       if (isJsonRpc(raw)) {
-        const channel = usageChannel(request, env.OPS_TOKEN, attributedMcpChannel ?? "direct");
+        const channel = operatorMcp
+          ? "operator"
+          : usageChannel(request, env.OPS_TOKEN, attributedMcpChannel ?? "direct");
         const tools = [
           publicScanMcpTool(),
           ...releaseGateMcpTools({}, { app: appStore, workflow: env.RELEASE_GATE_WORKFLOW }),
@@ -383,7 +409,7 @@ p{color:var(--ink2);margin-bottom:18px}
           name: AGENTREADY_SERVER_NAME, version: AGENTREADY_VERSION,
           instructions: "Run a privacy-safe readiness scan against a public WooCommerce storefront. Store-bound shopping tools use /mcp/{store_id}.",
         }, tools, {
-          authorization: request.headers.get("authorization") ?? undefined,
+          authorization: operatorMcp ? undefined : request.headers.get("authorization") ?? undefined,
         });
 
         if (reply === null) return new Response(null, { status: 202 });
@@ -396,7 +422,7 @@ p{color:var(--ink2);margin-bottom:18px}
       const body = raw as { tool?: string; input?: Record<string, unknown> };
       if (body.tool !== PUBLIC_SCAN_TOOL_NAME) {
         await recordPublicScanOutcome(appStore, "invalid");
-        await recordSurfaceOutcome(appStore, "legacy_public_scan", usageChannel(
+        await recordSurfaceOutcome(appStore, "legacy_public_scan", operatorMcp ? "operator" : usageChannel(
           request, env.OPS_TOKEN, attributedMcpChannel ?? "direct"), "invalid");
         return new Response(JSON.stringify({ error: `unknown tool: ${String(body.tool ?? "(missing)")}` }), {
           status: 400, headers: { "content-type": "application/json" },
@@ -404,7 +430,7 @@ p{color:var(--ink2);margin-bottom:18px}
       }
       const out = await publicScanMcpTool().run(body.input ?? {});
       await recordPublicScanOutcome(appStore, out.ok ? "success" : "refused");
-      await recordSurfaceOutcome(appStore, "legacy_public_scan", usageChannel(
+      await recordSurfaceOutcome(appStore, "legacy_public_scan", operatorMcp ? "operator" : usageChannel(
         request, env.OPS_TOKEN, attributedMcpChannel ?? "direct"), classifyToolResult(out.ok, out.text));
       return new Response(out.text, {
         status: out.ok ? 200 : 400, headers: { "content-type": "application/json" },

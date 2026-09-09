@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { billingPage } from "../src/web.ts";
 
 const LANDING = readFileSync(new URL("../marketing/landing/index.html", import.meta.url), "utf8");
+const COMMERCE = readFileSync(new URL("../marketing/landing/commerce.html", import.meta.url), "utf8");
 const LLMS = readFileSync(new URL("../marketing/landing/llms.txt", import.meta.url), "utf8");
 
 /** Prices configured, as a live deployment would have them. */
@@ -24,11 +25,12 @@ const PAID_PLANS = [
   { name: "Agency", price: "$99", priceKey: "agency" as const, button: "paddle-agency-btn" },
 ];
 
-test("every price the marketing quotes is the same price the app quotes", () => {
-  for (const plan of PAID_PLANS) {
-    assert.ok(LANDING.includes(plan.price), `the landing page must quote ${plan.name} at ${plan.price}`);
-    assert.ok(LLMS.includes(plan.price), `llms.txt must quote ${plan.name} at ${plan.price}`);
-  }
+test("the Release Gate root does not inherit commerce pricing", () => {
+  for (const plan of PAID_PLANS) assert.equal(LANDING.includes(plan.price), false,
+    `${plan.name} pricing belongs outside the Release Gate root`);
+  assert.match(LANDING, /Release Gate settlement remains disabled/i);
+  assert.match(COMMERCE, /separate connected-store surface/i);
+  assert.match(LLMS, /separate from\s+the root five-tool Release Gate contract/i);
 });
 
 test("every advertised plan has a checkout a customer can actually open", () => {

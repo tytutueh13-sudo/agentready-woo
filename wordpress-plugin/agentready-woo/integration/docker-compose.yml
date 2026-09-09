@@ -16,6 +16,8 @@ services:
     build:
       context: ../../..
       dockerfile: wordpress-plugin/agentready-woo/integration/Dockerfile
+      args:
+        WP_CLI_IMAGE: "${AGENTREADY_WP_CLI_IMAGE:-wordpress:cli-php8.3}"
     user: "0:0"
     depends_on:
       db:
@@ -28,6 +30,9 @@ services:
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: agentready-harness
       AGENTREADY_HPOS: "${AGENTREADY_HPOS:-on}"
+      AGENTREADY_WP_VERSION: "${AGENTREADY_WP_VERSION:-latest}"
+      AGENTREADY_WOO_VERSION: "${AGENTREADY_WOO_VERSION:-latest}"
+      AGENTREADY_PLUGIN_CHECK: "${AGENTREADY_PLUGIN_CHECK:-0}"
     entrypoint: ["/bin/bash", "/run.sh"]
 
   web:
