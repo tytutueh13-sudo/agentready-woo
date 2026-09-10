@@ -10,7 +10,9 @@ export interface HealthPayload {
 export interface StatusPayload {
   status: "healthy";
   coreStatus: "healthy";
+  coreProductEnabled: true;
   experimentalSettlementStatus: "enabled" | "disabled";
+  experimentalSettlementProductEnabled: boolean;
   service: string;
   version: string;
   timestamp: string;
@@ -54,7 +56,9 @@ export function status(serviceName: string, version: string,
     // must not report the whole product as degraded.
     status: "healthy",
     coreStatus: "healthy",
+    coreProductEnabled: true,
     experimentalSettlementStatus: revenueSystemEnabled && productEnabled ? "enabled" : "disabled",
+    experimentalSettlementProductEnabled: productEnabled,
     service: serviceName, version, timestamp: new Date().toISOString(),
     revenueSystemEnabled, productEnabled,
     artifactHash: artifactHash(env),
@@ -63,6 +67,7 @@ export function status(serviceName: string, version: string,
     budgetState: revenueSystemEnabled && productEnabled ? "healthy" : "disabled",
     d1ConcurrencyVerified, x402InteropVerified,
     note: "Core public preflight and owner-authorized Release Gate services are healthy. " +
-      "The fields below describe a separate experimental x402 settlement rail; disabled is an intentional commercial state, not a product outage.",
+      "productEnabled is a legacy alias for experimentalSettlementProductEnabled; " +
+      "disabled is an intentional commercial state for x402, not a product outage.",
   };
 }
