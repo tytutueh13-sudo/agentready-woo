@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { appendFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 

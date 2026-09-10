@@ -113,3 +113,16 @@ npm run test:wordpress
 This public repository is a review mirror, not the production deployment
 source. Its `wrangler.toml` carries a placeholder database id. Deployment is
 performed from the private monorepo.
+
+## License scope
+
+- `action.yml` and `action/**` are licensed under the MIT License in
+  `action/LICENSE`.
+- `wordpress-plugin/agentready-woo/**` is licensed GPL-2.0-or-later as declared
+  in the plugin header and `readme.txt`.
+- No license is granted for the remaining server, test, deployment or mirror
+  files unless a file or subtree states one explicitly. Those files remain
+  all rights reserved.
+
+The scoped licenses do not apply to the hosted AgentReady service, its data,
+trademarks or private deployment configuration.
