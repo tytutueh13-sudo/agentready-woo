@@ -21,7 +21,9 @@ test("public health identity never exposes the durable AgentReady product key", 
   assert.equal(publicStatus.productEnabled, true);
   assert.equal(publicStatus.status, "healthy");
   assert.equal(publicStatus.coreStatus, "healthy");
+  assert.equal(publicStatus.coreProductEnabled, true);
   assert.equal(publicStatus.experimentalSettlementStatus, "enabled");
+  assert.equal(publicStatus.experimentalSettlementProductEnabled, true);
   assert.doesNotMatch(JSON.stringify({ publicHealth, publicStatus }), /early-3426536d88daa242/);
 });
 
@@ -31,7 +33,11 @@ test("disabled experimental settlement does not degrade the working core product
   }, "early-3426536d88daa242");
   assert.equal(publicStatus.status, "healthy");
   assert.equal(publicStatus.coreStatus, "healthy");
+  assert.equal(publicStatus.coreProductEnabled, true);
   assert.equal(publicStatus.experimentalSettlementStatus, "disabled");
+  assert.equal(publicStatus.experimentalSettlementProductEnabled, false);
+  assert.equal(publicStatus.productEnabled, false);
+  assert.match(publicStatus.note, /legacy alias/i);
   assert.match(publicStatus.note, /intentional commercial state/i);
 });
 
