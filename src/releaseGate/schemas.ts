@@ -30,5 +30,60 @@ export function parseAcceptanceRunInput(value: unknown): AcceptanceRunInput {
   if (baseline !== undefined && (typeof baseline !== "string" || baseline.length < 8 || baseline.length > 100)) throw new ContractError("INVALID_BASELINE_RUN_ID");
   return { store_id: string(value, "store_id", 8, 100), mode, requested_families: familyList(value.requested_families, true), baseline_run_id: baseline, idempotency_key: string(value, "idempotency_key", 16, 200) };
 }
-export const PRELIGHT_INPUT_SCHEMA = { type: "object", additionalProperties: false, required: ["store_origin"], properties: { store_origin: { type: "string", minLength: 8, maxLength: 2048 }, requested_families: { type: "array", minItems: 1, maxItems: 6, items: { type: "string", enum: [...RELEASE_FAMILIES] } } } };
-export const ACCEPTANCE_INPUT_SCHEMA = { type: "object", additionalProperties: false, required: ["store_id", "mode", "requested_families", "idempotency_key"], properties: { store_id: { type: "string", minLength: 8, maxLength: 100 }, mode: { const: "owned-safe-active" }, requested_families: { type: "array", minItems: 1, maxItems: 6, items: { type: "string", enum: [...RELEASE_FAMILIES] } }, baseline_run_id: { type: "string", minLength: 8, maxLength: 100 }, idempotency_key: { type: "string", minLength: 16, maxLength: 200 } } };
+export const PRELIGHT_INPUT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["store_origin"],
+  properties: {
+    store_origin: {
+      type: "string",
+      minLength: 8,
+      maxLength: 2048,
+      description: "Public HTTPS origin of the WooCommerce store, with no path, query, credentials, private host, or customer data; for example https://shop.example.com.",
+    },
+    requested_families: {
+      type: "array",
+      minItems: 1,
+      maxItems: 6,
+      items: { type: "string", enum: [...RELEASE_FAMILIES] },
+      description: "Public protocol families to inspect. Omit to check all supported families; use only woo, robots, jsonld, mcp, ucp, or acp.",
+    },
+  },
+};
+export const ACCEPTANCE_INPUT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["store_id", "mode", "requested_families", "idempotency_key"],
+  properties: {
+    store_id: {
+      type: "string",
+      minLength: 8,
+      maxLength: 100,
+      description: "AgentReady store identifier owned by the authenticated account. Use the stored identifier, never a store URL, secret, or customer value.",
+    },
+    mode: {
+      type: "string",
+      const: "owned-safe-active",
+      description: "Required safety mode. The only accepted value is owned-safe-active, which requires verified store ownership before the run starts.",
+    },
+    requested_families: {
+      type: "array",
+      minItems: 1,
+      maxItems: 6,
+      items: { type: "string", enum: [...RELEASE_FAMILIES] },
+      description: "One or more protocol families the owner authorizes this Release Gate run to verify: woo, robots, jsonld, mcp, ucp, or acp.",
+    },
+    baseline_run_id: {
+      type: "string",
+      minLength: 8,
+      maxLength: 100,
+      description: "Optional prior Release Gate run identifier from the same owned store to use as the comparison baseline; omit when no valid baseline exists.",
+    },
+    idempotency_key: {
+      type: "string",
+      minLength: 16,
+      maxLength: 200,
+      description: "Caller-generated retry key for this exact start request. Reuse it only when retrying the same operation; do not place credentials or customer data in it.",
+    },
+  },
+};

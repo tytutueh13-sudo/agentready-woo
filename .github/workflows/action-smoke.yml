@@ -1,0 +1,37 @@
+name: Marketplace action smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the published v1 action
+        id: preflight
+        uses: tytutueh13-sudo/agentready-woo@v1
+        with:
+          # This first-party, non-Woo origin deliberately tests packaging and
+          # abstention handling without inspecting somebody else's store.
+          store-origin: https://app.utilityhouse.xyz
+          families: woo
+          fail-on-hold: "false"
+
+      - name: Verify finite outputs
+        env:
+          DECISION: ${{ steps.preflight.outputs.decision }}
+          STATE: ${{ steps.preflight.outputs.state }}
+        shell: bash
+        run: |
+          case "$DECISION" in
+            RELEASE|HOLD|PARTIAL|ABSTAIN) ;;
+            *) echo "Unexpected decision: $DECISION" >&2; exit 1 ;;
+          esac
+          case "$STATE" in
+            ACCEPTED|REJECTED|PARTIAL|BLOCKED|UNMEASURED) ;;
+            *) echo "Unexpected state: $STATE" >&2; exit 1 ;;
+          esac
