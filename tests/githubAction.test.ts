@@ -1,10 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decisionFor, parseInputs, runAction } from "../action/index.mjs";
 
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const actionPath = fileURLToPath(new URL("../action/index.mjs", import.meta.url));
+
+test("the published action declares the supported Node 24 runtime", () => {
+  const metadata = readFileSync(join(root, "action.yml"), "utf8");
+  assert.match(metadata, /runs:\s*\n\s*using: node24\s*\n\s*main: action\/index\.mjs/);
+  assert.doesNotMatch(metadata, /using: node20/);
+});
 
 test("GitHub Actions environment does not execute the action when the module is imported", () => {
   const result = spawnSync(process.execPath, ["--input-type=module", "--eval", `await import(${JSON.stringify(new URL("../action/index.mjs", import.meta.url).href)})`], {

@@ -26,5 +26,5 @@ outputs:
   unknowns:
     description: JSON array of finite unknown reason codes.
 runs:
-  using: node20
+  using: node24
   main: action/index.mjs
