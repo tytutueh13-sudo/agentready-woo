@@ -7,7 +7,7 @@ import { evidenceCoversFamilies } from "./signedEvidence.ts";
 import type { AppStore } from "../core/appStore.ts";
 import type { McpTool } from "../core/mcpRpc.ts";
 
-const RUN_ID_SCHEMA={type:"object",additionalProperties:false,required:["run_id"],properties:{run_id:{type:"string",minLength:8,maxLength:100}}};
+const RUN_ID_SCHEMA={type:"object",additionalProperties:false,required:["run_id"],properties:{run_id:{type:"string",minLength:8,maxLength:100,description:"Release Gate run identifier returned by start_woo_release_verification. It must belong to the authenticated account; never substitute a store URL, credential, or customer value."}}};
 const CODES=["AUTH_REQUIRED","STORE_NOT_FOUND","OWNERSHIP_REQUIRED","WORKFLOW_UNAVAILABLE","WORKFLOW_DISPATCH_FAILED","INVALID_INPUT","RUN_NOT_FOUND","RESULT_NOT_READY","EVIDENCE_REQUIRED"];
 const FAILURE_SCHEMA={type:"object",additionalProperties:false,required:["code"],properties:{code:{type:"string",enum:CODES},state:{type:"string",enum:["BLOCKED","UNMEASURED"]},settlement:{const:"disabled"}}};
 // A code-only error must be structurally distinct from EVIDENCE_REQUIRED,

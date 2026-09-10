@@ -125,6 +125,23 @@ test("every advertised output schema has the MCP-compatible object root Smithery
   }
 });
 
+test("every advertised input property tells a model exactly what belongs there", () => {
+  const gate = releaseGateMcpTools({}, { app: {} as never, workflow: undefined } as never);
+  const all = [publicScanMcpTool(fetch), ...gate];
+  for (const tool of all) {
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: unknown; const?: unknown; description?: unknown }>;
+    };
+    for (const [name, property] of Object.entries(schema.properties ?? {})) {
+      assert.equal(typeof property.description, "string", `${tool.name}.${name} needs a description`);
+      assert.ok(String(property.description).length >= 24, `${tool.name}.${name} description is too thin`);
+      if (property.const !== undefined) {
+        assert.equal(typeof property.type, "string", `${tool.name}.${name} const must still declare its JSON type`);
+      }
+    }
+  }
+});
+
 test("a tool that writes does not claim to be read-only", () => {
   const gate = releaseGateMcpTools({}, { app: {} as never, workflow: undefined } as never);
   const byName = new Map(gate.map(t => [t.name, t]));
