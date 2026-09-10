@@ -5,7 +5,7 @@
  * Description: Publishes agent discovery and sends signed, aggregate-only WooCommerce evidence for an owner-authorized AgentReady Release Gate. Optional read-only catalogue features remain separate.
  * Version:     1.2.0
  * Author:      AgentReady / UtilityHouse
- * Author URI:  https://app.utilityhouse.xyz
+ * Author URI:  https://utilityhouse.xyz
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: agentready-woo
