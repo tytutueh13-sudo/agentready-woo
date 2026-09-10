@@ -1,5 +1,5 @@
 === AgentReady Release Gate for WooCommerce ===
-Contributors: agentready
+Contributors: shinjungwook
 Tags: woocommerce, release testing, mcp, privacy, site health
 Requires at least: 6.0
 Tested up to: 7.1
