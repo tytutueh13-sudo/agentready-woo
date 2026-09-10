@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1544" height="500" viewBox="0 0 1544 500">
+  <rect width="1544" height="500" fill="#17151c"/>
+  <circle cx="1330" cy="-30" r="330" fill="#f15a32" opacity=".08"/>
+  <circle cx="1235" cy="550" r="360" fill="#f15a32" opacity=".05"/>
+  <g transform="translate(92 82)" font-family="Arial, Helvetica, sans-serif">
+    <text x="0" y="0" dominant-baseline="hanging" fill="#f15a32" font-size="25" font-weight="700" letter-spacing="3">AGENTREADY WOO</text>
+    <text x="0" y="69" dominant-baseline="hanging" fill="#ffffff" font-size="64" font-weight="700">Check the agent-facing surface</text>
+    <text x="0" y="145" dominant-baseline="hanging" fill="#ffffff" font-size="64" font-weight="700">before a release ships.</text>
+    <text x="0" y="245" dominant-baseline="hanging" fill="#c9c6ce" font-size="28">Local readiness first. Signed aggregate evidence only when you choose.</text>
+  </g>
+  <g transform="translate(1105 80)" font-family="Arial, Helvetica, sans-serif">
+    <rect width="328" height="340" rx="18" fill="#f8f7f4"/>
+    <text x="32" y="38" dominant-baseline="hanging" fill="#17151c" font-size="21" font-weight="700">RELEASE CHECK</text>
+    <line x1="32" y1="82" x2="296" y2="82" stroke="#dedbe2" stroke-width="2"/>
+    <text x="32" y="112" dominant-baseline="hanging" fill="#62606a" font-size="18">WooCommerce</text>
+    <text x="238" y="108" dominant-baseline="hanging" fill="#147d55" font-size="18" font-weight="700">PASS</text>
+    <text x="32" y="174" dominant-baseline="hanging" fill="#62606a" font-size="18">Unknowns</text>
+    <text x="238" y="170" dominant-baseline="hanging" fill="#ad4f11" font-size="18" font-weight="700">KEPT</text>
+    <text x="32" y="236" dominant-baseline="hanging" fill="#62606a" font-size="18">Outbound evidence</text>
+    <text x="250" y="232" dominant-baseline="hanging" fill="#17151c" font-size="18" font-weight="700">OFF</text>
+    <path d="M34 302l17 17 38-42" fill="none" stroke="#f15a32" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="108" y="289" dominant-baseline="hanging" fill="#17151c" font-size="20" font-weight="700">Evidence, not a score.</text>
+  </g>
+</svg>

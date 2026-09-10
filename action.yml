@@ -1,5 +1,5 @@
 name: AgentReady Woo Release Preflight
-description: Run a read-only WooCommerce protocol preflight and fail only on an explicit HOLD.
+description: Check public WooCommerce agent surfaces in CI and fail only on an explicit HOLD.
 author: UtilityHouse
 branding:
   icon: check-square
