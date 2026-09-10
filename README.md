@@ -1,11 +1,36 @@
 # AgentReady Woo — WooCommerce Release Gate
 
+![AgentReady Woo checks the agent-facing WooCommerce surface before a release ships](wordpress-plugin/wordpress-org-assets/banner-1544x500.png)
+
+**Verify the agent-facing WooCommerce surface after a release—without touching
+orders, checkout or payment credentials.**
+
+[Run the free public preflight](https://app.utilityhouse.xyz) or add the
+dependency-free Node 20 action to a deployment workflow. It fails CI only on an
+explicit `HOLD` by default; `BLOCKED`, `UNMEASURED` and `UNREADABLE` remain
+visible abstentions.
+
+```yaml
+- name: AgentReady Woo preflight
+  uses: tytutueh13-sudo/agentready-woo@v1
+  with:
+    store-origin: https://shop.example
+```
+
+### What the release check gives you
+
+- One read-only public preflight for WooCommerce, robots, JSON-LD, MCP, UCP and
+  ACP surfaces.
+- A finite decision and unknown-reason list instead of a padded readiness score.
+- An optional owner-authorized gate fed by signed, aggregate-only WordPress
+  evidence.
+- No order creation, inventory reservation, checkout mutation or payment access.
+
 Live service: **[app.utilityhouse.xyz](https://app.utilityhouse.xyz)**
 
 AgentReady runs a passive public preflight, then lets a verified store owner
-make a version-pinned release decision from signed, aggregate-only plugin
-evidence. A target that cannot be read returns an abstention rather than a
-fabricated low score.
+make a version-pinned release decision from signed plugin evidence. A target
+that cannot be read returns an abstention rather than a fabricated low score.
 
 This is not a certification, ranking promise or checkout test. The root tools
 do not create orders, reserve inventory, send customer email or handle payment
@@ -35,13 +60,8 @@ The repository includes a dependency-free Node 20 action. It calls the same
 public preflight contract, writes a reason-coded job summary and fails only on
 an explicit `HOLD`. `BLOCKED` and `UNMEASURED` remain abstentions.
 
-```yaml
-- name: AgentReady Woo preflight
-  uses: tytutueh13-sudo/agentready-woo@v1
-  with:
-    store-origin: https://shop.example
-    families: woo,robots,jsonld,mcp
-```
+Add `families: woo,robots,jsonld,mcp` when the workflow should check only those
+four protocol families.
 
 The public endpoint allows three calls per target origin per day and ten calls
 per calling IP per day. The action changes nothing on the store.

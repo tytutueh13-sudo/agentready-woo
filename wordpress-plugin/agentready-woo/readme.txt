@@ -9,21 +9,31 @@ Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Check local WooCommerce readiness, then optionally send signed aggregate evidence for an owner-authorized AgentReady Release Gate.
+Check WooCommerce release readiness locally, then opt in to signed aggregate evidence for an owner-authorized release decision.
 
 == Description ==
 
-AgentReady Release Gate helps a WooCommerce administrator answer a narrow question: is the agent-facing surface of this specific release supported by attributable evidence?
+Know what your WooCommerce store can prove before a release ships.
+
+AgentReady Release Gate gives store owners, agencies and release engineers a useful local checkpoint before any external service is connected. It shows what WordPress can measure, what remains unavailable, and whether outbound evidence is still off.
+
+When an administrator chooses to connect, the plugin signs a closed aggregate evidence envelope. AgentReady combines that envelope with public Store API, crawler, structured-data and MCP checks to make a version-pinned release decision. Missing or unreadable evidence stays visible instead of being turned into a reassuring score.
 
 Development source: https://github.com/tytutueh13-sudo/agentready-woo
 
-**Useful before connecting**
+**Useful before connecting anything**
 
 * Shows a local-only snapshot for HTTPS, WooCommerce availability, published-product state, discovery path and outbound-evidence status.
 * Detects the WordPress Abilities API and canonical WooCommerce abilities without registering duplicate product or order tools.
 * Publishes `/.well-known/agenticweb.md` on the store's own domain.
 * Adds the discovery link tag and named crawler rules.
 * Makes no external request merely because the plugin was activated or its settings page was opened.
+
+**Built for an honest release decision**
+
+* Keeps `PASS`, `HOLD`, `UNMEASURED` and `BLOCKED` distinct.
+* Pins evidence to the release being checked instead of making a general store claim.
+* Leaves checkout, orders, inventory and payment credentials outside the Release Gate.
 
 **Optional Release Gate connection**
 
@@ -90,10 +100,9 @@ The plugin and public preflight are free. Release Gate settlement is disabled wh
 
 == Screenshots ==
 
-1. Review the local-only readiness snapshot before connecting.
-2. Configure the authenticated Release Gate connection and explicit schedule consent.
-3. Send one aggregate evidence envelope manually.
-4. Inspect explicit release, hold, partial or abstain outcomes in AgentReady.
+1. Review the local-only WooCommerce readiness snapshot before connecting any external service.
+2. Keep the authenticated connection and daily evidence schedule off until an administrator explicitly opts in.
+3. Inspect the local discovery record and send one aggregate evidence envelope only when the store owner chooses.
 
 == Changelog ==
 
