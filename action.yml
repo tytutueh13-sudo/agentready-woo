@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 name: AgentReady Woo Release Preflight
 description: Check public WooCommerce agent surfaces in CI and fail only on an explicit HOLD.
 author: UtilityHouse
