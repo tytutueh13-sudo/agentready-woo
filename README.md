@@ -6,7 +6,7 @@
 orders, checkout or payment credentials.**
 
 [Run the free public preflight](https://app.utilityhouse.xyz) or add the
-dependency-free Node 20 action to a deployment workflow. It fails CI only on an
+dependency-free Node 24 action to a deployment workflow. It fails CI only on an
 explicit `HOLD` by default; `BLOCKED`, `UNMEASURED` and `UNREADABLE` remain
 visible abstentions.
 
@@ -56,7 +56,7 @@ unmeasured. Release Gate settlement is disabled.
 
 ## GitHub Action
 
-The repository includes a dependency-free Node 20 action. It calls the same
+The repository includes a dependency-free Node 24 action. It calls the same
 public preflight contract, writes a reason-coded job summary and fails only on
 an explicit `HOLD`. `BLOCKED` and `UNMEASURED` remain abstentions.
 
