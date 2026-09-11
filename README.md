@@ -1,6 +1,6 @@
 # AgentReady Woo — WooCommerce Release Gate
 
-![AgentReady Woo checks the agent-facing WooCommerce surface before a release ships](wordpress-plugin/wordpress-org-assets/banner-1544x500.png)
+![UtilityHouse Release Gate checks the agent-facing WooCommerce surface before a release ships](wordpress-plugin/wordpress-org-assets/banner-1544x500.png)
 
 **Verify the agent-facing WooCommerce surface after a release—without touching
 orders, checkout or payment credentials.**
@@ -68,8 +68,8 @@ per calling IP per day. The action changes nothing on the store.
 
 ## WordPress plugin
 
-`wordpress-plugin/agentready-woo` is version 1.2.0. It provides a useful local
-readiness snapshot before connection. Activation neither contacts AgentReady
+`wordpress-plugin/utilityhouse-release-gate-for-woocommerce` is version 1.2.1. It provides a useful local
+readiness snapshot before connection. Activation neither contacts UtilityHouse
 nor creates a schedule. An administrator must make a one-time manual send or
 separately opt in to a daily signed aggregate evidence schedule.
 
@@ -85,8 +85,8 @@ npm run build:plugin
 ```
 
 Try the local-only snapshot without touching a real store in the
-[version-pinned WordPress Playground demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2Ftytutueh13-sudo%2Fagentready-woo%2Fv1.2.0%2Fwordpress-plugin%2Fagentready-woo%2Fblueprints%2Fblueprint.json).
-The disposable site configures no AgentReady endpoint and sends no evidence.
+[version-pinned WordPress Playground demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2Ftytutueh13-sudo%2Fagentready-woo%2Fwordpress-v1.2.1%2Fwordpress-plugin%2Futilityhouse-release-gate-for-woocommerce%2Fblueprints%2Fblueprint.json).
+The disposable site configures no UtilityHouse endpoint and sends no evidence.
 
 ## REST preflight
 
@@ -118,7 +118,7 @@ performed from the private monorepo.
 
 - `action.yml` and `action/**` are licensed under the MIT License in
   `action/LICENSE`.
-- `wordpress-plugin/agentready-woo/**` is licensed GPL-2.0-or-later as declared
+- `wordpress-plugin/utilityhouse-release-gate-for-woocommerce/**` is licensed GPL-2.0-or-later as declared
   in the plugin header and `readme.txt`.
 - No license is granted for the remaining server, test, deployment or mirror
   files unless a file or subtree states one explicitly. Those files remain

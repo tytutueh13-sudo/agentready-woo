@@ -45,11 +45,11 @@ test("every manifest carries the same version the code reports", () => {
   }
 });
 
-test("the public package and GitHub Action carry the product version", () => {
+test("the public package, Action and WordPress plugin carry their release versions", () => {
   assert.equal(json("package.json").version, AGENTREADY_VERSION);
   assert.match(text("action/index.mjs"), new RegExp(`agentready-woo-action/${AGENTREADY_VERSION.replaceAll(".", "\\.")}`));
-  assert.match(text("wordpress-plugin/agentready-woo/agentready-woo.php"),
-    new RegExp(`Version:\\s+${AGENTREADY_VERSION.replaceAll(".", "\\.")}`));
+  assert.match(text("wordpress-plugin/utilityhouse-release-gate-for-woocommerce/utilityhouse-release-gate-for-woocommerce.php"),
+    /Version:\s+1\.2\.1/);
 });
 
 test("the two server manifests are the same document", () => {

@@ -21,6 +21,7 @@ async function get(path) {
 
 for (const path of ["/", "/health", "/status", "/support", "/security",
                     "/robots.txt", "/llms.txt", "/.well-known/agenticweb.md",
+                    "/downloads/utilityhouse-release-gate-for-woocommerce.zip",
                     "/downloads/agentready-woo.zip"]) {
   const response = await get(path);
   for (const header of ["content-security-policy", "strict-transport-security",

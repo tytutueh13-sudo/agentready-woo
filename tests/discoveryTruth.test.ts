@@ -45,11 +45,11 @@ test("deployment binds Cloudflare version metadata for artifact identity", () =>
 });
 
 test("WordPress package describes the shipped Release Gate instead of the retired launch story", () => {
-  const header = read("wordpress-plugin/agentready-woo/agentready-woo.php");
-  const readme = read("wordpress-plugin/agentready-woo/readme.txt");
-  assert.match(header, /Version:\s+1\.2\.0/);
-  assert.match(header, /AGENTREADY_WOO_VERSION', '1\.2\.0'/);
-  assert.match(readme, /Stable tag: 1\.2\.0/);
+  const header = read("wordpress-plugin/utilityhouse-release-gate-for-woocommerce/utilityhouse-release-gate-for-woocommerce.php");
+  const readme = read("wordpress-plugin/utilityhouse-release-gate-for-woocommerce/readme.txt");
+  assert.match(header, /Version:\s+1\.2\.1/);
+  assert.match(header, /UTILITYHOUSE_RELEASE_GATE_VERSION', '1\.2\.1'/);
+  assert.match(readme, /Stable tag: 1\.2\.1/);
   assert.match(readme, /signed, aggregate-only Release Gate evidence/i);
   assert.match(readme, /settlement is disabled/i);
   for (const stale of ["More than a million Shopify", "+38%", "+138%", "wallets already out"]) {

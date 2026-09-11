@@ -6,7 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test",
-    "test:wordpress": "bash wordpress-plugin/agentready-woo/integration/run-both.sh",
+    "test:wordpress": "bash wordpress-plugin/utilityhouse-release-gate-for-woocommerce/integration/run-both.sh",
     "build:plugin": "python3 scripts/package-wordpress-plugin.py",
     "verify:production": "node scripts/verify-production.mjs",
     "verify:operator": "node scripts/operator-smoke.mjs",

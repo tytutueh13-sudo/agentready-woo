@@ -577,7 +577,9 @@ export async function handleAppRequest(
       const root = packet.key_id === "current" ? env.RELEASE_EVIDENCE_CURRENT_KEY
         : previousEvidenceKeyAllowed(env.RELEASE_EVIDENCE_PREVIOUS_KEY_EXPIRES_AT)
           ? env.RELEASE_EVIDENCE_PREVIOUS_KEY : undefined;
-      const signature = request.headers.get("x-agentready-evidence-signature") ?? "";
+      const signature = request.headers.get("x-utilityhouse-release-gate-signature")
+        ?? request.headers.get("x-agentready-evidence-signature")
+        ?? "";
       if (!root || signature.length !== 64 || !constantTimeEqual(signature,
         await hmac(await evidenceKey(root, store.id, packet.key_id), canonicalPluginEvidence(packet)))) {
         await recordUsageSafe(app, "wordpress_evidence", "release_evidence_ingest", evidenceChannel, "refused");
@@ -715,7 +717,7 @@ export async function handleAppRequest(
     if (!app) return releaseGateJson(503, { code: "INFRA_PERSISTENCE_FAILED" }); const user = await currentUser(request, app); if (!user) return releaseGateJson(401, { code: "AUTH_REQUIRED" });
     const store = await app.getStore(ownershipPath[1]); if (!store || store.userId !== user.userId) return releaseGateJson(404, { code: "STORE_NOT_FOUND" });
     const challenge = await new ReleaseGateStore(app).createChallenge(store.id, user.userId);
-    return releaseGateJson(201, { challenge_id: challenge.id, challenge: challenge.challenge, expires_at: new Date(challenge.expiresAt).toISOString(), proof_path: "/.well-known/agentready-ownership" });
+    return releaseGateJson(201, { challenge_id: challenge.id, challenge: challenge.challenge, expires_at: new Date(challenge.expiresAt).toISOString(), proof_path: "/.well-known/utilityhouse-release-gate-ownership" });
   }
   const verifyPath = path.match(/^\/api\/v2\/stores\/([^/]+)\/ownership-challenges\/([^/]+)\/verify$/);
   if (verifyPath && method === "POST") {

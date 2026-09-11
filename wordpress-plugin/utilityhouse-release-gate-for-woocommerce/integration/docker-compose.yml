@@ -15,7 +15,7 @@ services:
   wordpress:
     build:
       context: ../../..
-      dockerfile: wordpress-plugin/agentready-woo/integration/Dockerfile
+      dockerfile: wordpress-plugin/utilityhouse-release-gate-for-woocommerce/integration/Dockerfile
       args:
         WP_CLI_IMAGE: "${AGENTREADY_WP_CLI_IMAGE:-wordpress:cli-php8.3}"
     user: "0:0"

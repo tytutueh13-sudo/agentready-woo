@@ -1,8 +1,8 @@
 {
   "$schema": "https://playground.wordpress.net/blueprint-schema.json",
   "meta": {
-    "title": "AgentReady Release Gate for WooCommerce",
-    "description": "Try the local-only AgentReady readiness snapshot in a disposable WooCommerce site. No Release Gate connection or outbound evidence is configured.",
+    "title": "UtilityHouse Release Gate for WooCommerce",
+    "description": "Try the local-only UtilityHouse Release Gate snapshot in a disposable WooCommerce site. No external connection or outbound evidence is configured.",
     "author": "UtilityHouse",
     "categories": ["woocommerce", "plugin-demo", "privacy"]
   },
@@ -13,10 +13,10 @@
   "features": {
     "networking": true
   },
-  "landingPage": "/wp-admin/admin.php?page=agentready-woo",
+  "landingPage": "/wp-admin/admin.php?page=utilityhouse-release-gate-for-woocommerce",
   "login": true,
   "siteOptions": {
-    "blogname": "AgentReady Playground"
+    "blogname": "UtilityHouse Release Gate Playground"
   },
   "steps": [
     {
@@ -34,13 +34,13 @@
       "pluginData": {
         "resource": "git:directory",
         "url": "https://github.com/tytutueh13-sudo/agentready-woo",
-        "path": "wordpress-plugin/agentready-woo",
-        "ref": "v1.2.0",
+        "path": "wordpress-plugin/utilityhouse-release-gate-for-woocommerce",
+        "ref": "wordpress-v1.2.1",
         "refType": "tag"
       },
       "options": {
         "activate": true,
-        "targetFolderName": "agentready-woo"
+        "targetFolderName": "utilityhouse-release-gate-for-woocommerce"
       }
     },
     {

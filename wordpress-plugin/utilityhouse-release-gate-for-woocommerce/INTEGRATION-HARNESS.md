@@ -20,7 +20,7 @@ It verifies:
 5. the HTTP evidence envelope contains only the aggregate check and its
    signature, never product, shopper, order, payment, address, or credentials;
 6. invalid identifiers and keys fail closed; and
-7. uninstall removes all AgentReady options and the scheduled event.
+7. uninstall removes all UtilityHouse Release Gate options and the scheduled event.
 
 The test endpoint is intercepted inside WordPress; this harness performs no
 production write and no payment or settlement action. A separate owned-store

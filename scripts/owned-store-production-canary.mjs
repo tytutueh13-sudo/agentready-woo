@@ -12,7 +12,7 @@ if (!/^https:\/\//.test(storeOrigin)) {
 }
 
 const serviceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const composeFile = resolve(serviceRoot, "wordpress-plugin/agentready-woo/integration/docker-compose.yml");
+const composeFile = resolve(serviceRoot, "wordpress-plugin/utilityhouse-release-gate-for-woocommerce/integration/docker-compose.yml");
 const dockerPath = `/Applications/Docker.app/Contents/Resources/bin:${process.env.PATH ?? ""}`;
 const suffix = `${Date.now()}-${randomBytes(5).toString("hex")}`;
 const email = `agentready-canary-${suffix}@example.invalid`;
@@ -45,13 +45,13 @@ function configurePluginAndPublishEvidence(bundle) {
   const command = [
     "set -euo pipefail",
     'WP="wp --allow-root --path=/var/www/html"',
-    '$WP option update agentready_woo_worker_url "$ARW_ENDPOINT" >/dev/null',
-    '$WP option update agentready_woo_release_store_id "$ARW_STORE_ID" >/dev/null',
-    '$WP option update agentready_woo_release_gate_key "$ARW_OWNERSHIP_KEY" >/dev/null',
-    '$WP option update agentready_woo_release_evidence_current "$ARW_EVIDENCE_KEY" >/dev/null',
-    '$WP option update agentready_woo_release_evidence_key_id current >/dev/null',
+    '$WP option update utilityhouse_release_gate_service_url "$ARW_ENDPOINT" >/dev/null',
+    '$WP option update utilityhouse_release_gate_store_id "$ARW_STORE_ID" >/dev/null',
+    '$WP option update utilityhouse_release_gate_ownership_key "$ARW_OWNERSHIP_KEY" >/dev/null',
+    '$WP option update utilityhouse_release_gate_evidence_current "$ARW_EVIDENCE_KEY" >/dev/null',
+    '$WP option update utilityhouse_release_gate_evidence_key_id current >/dev/null',
     "$WP rewrite flush --hard >/dev/null 2>&1 || true",
-    "$WP eval 'if (!AgentReady_Woo::run_release_evidence()) { exit(2); }'",
+    "$WP eval 'if (!UtilityHouse_Release_Gate::run_release_evidence()) { exit(2); }'",
   ].join("; ");
   const result = spawnSync("docker", [
     "compose", "-f", composeFile,
@@ -130,7 +130,7 @@ try {
     method: "POST",
     headers: authenticatedHeaders(),
   }, 201));
-  const proofResponse = await fetch(`${storeOrigin}/.well-known/agentready-ownership?challenge=${encodeURIComponent(challenge.challenge)}`, {
+  const proofResponse = await fetch(`${storeOrigin}${challenge.proof_path}?challenge=${encodeURIComponent(challenge.challenge)}`, {
     headers: { origin: appOrigin },
   });
   if (proofResponse.status !== 200 || proofResponse.headers.get("cache-control") !== "no-store") {

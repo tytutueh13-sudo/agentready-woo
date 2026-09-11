@@ -348,7 +348,7 @@ export function releaseGateSetupPage(input: {
 <div class="copy-row"><input id="${id}" type="${secret ? "password" : "text"}" readonly autocomplete="off" spellcheck="false" value="${escapeHtml(value)}"><button class="btn btn-line copy-btn" type="button" data-copy="${id}">Copy</button></div>`;
   const bundleHtml = bundle ? `<div class="connection-bundle" aria-labelledby="connection-bundle-title">
 <strong id="connection-bundle-title">Connection bundle</strong>
-<p class="setup-note">Visible only in this authenticated, no-store response. Paste it into WooCommerce → AgentReady; never email or commit these values.</p>
+<p class="setup-note">Visible only in this authenticated, no-store response. Paste it into WooCommerce → Release Gate; never email or commit these values.</p>
 ${field("bundle-endpoint", "Worker URL", bundle.endpoint)}
 ${field("bundle-store-id", "Store ID", bundle.storeId)}
 ${field("bundle-ownership", "Ownership key", bundle.ownershipKey, true)}
@@ -370,7 +370,9 @@ ${field("bundle-evidence", "Evidence key", bundle.evidenceKey, true)}
     verify.disabled=true;message.textContent="Checking the public proof…";
     try{
       var issued=await fetch(${jsValue(`/api/v2/stores/${store.id}/ownership-challenges`)},{method:"POST"});if(!issued.ok)throw new Error("challenge");var c=await issued.json();
-      var proof=await fetch(${jsValue(`${store.storeUrl}/.well-known/agentready-ownership`)}+"?challenge="+encodeURIComponent(c.challenge),{credentials:"omit"});if(!proof.ok)throw new Error("proof");var p=await proof.json();
+      var proof=await fetch(${jsValue(`${store.storeUrl}/.well-known/utilityhouse-release-gate-ownership`)}+"?challenge="+encodeURIComponent(c.challenge),{credentials:"omit"});
+      if(!proof.ok)proof=await fetch(${jsValue(`${store.storeUrl}/.well-known/agentready-ownership`)}+"?challenge="+encodeURIComponent(c.challenge),{credentials:"omit"});
+      if(!proof.ok)throw new Error("proof");var p=await proof.json();
       var checked=await fetch(${jsValue(`/api/v2/stores/${store.id}/ownership-challenges/`)}+encodeURIComponent(c.challenge_id)+"/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({challenge:c.challenge,proof:p.proof})});if(!checked.ok)throw new Error("verify");
       message.textContent="Ownership verified. Refreshing status…";location.reload();
     }catch(_){message.textContent="Could not verify yet. Save the bundle in WordPress, then try again.";verify.disabled=false;}
@@ -384,9 +386,9 @@ ${field("bundle-evidence", "Evidence key", bundle.evidenceKey, true)}
 ${error ? `<div class="err" role="alert">${escapeHtml(error)}</div>` : ""}
 <div class="setup-grid">
   <div class="setup-steps">
-    <section class="setup-step"><span class="step-no">1</span><div><h2>Install the plugin</h2><p>In WordPress, open Plugins → Add New → Upload Plugin, then activate AgentReady Woo.</p><a class="btn btn-line" href="/downloads/agentready-woo.zip" download>Download plugin (.zip)</a></div></section>
+    <section class="setup-step"><span class="step-no">1</span><div><h2>Install the plugin</h2><p>In WordPress, open Plugins → Add New → Upload Plugin, then activate UtilityHouse Release Gate for WooCommerce.</p><a class="btn btn-line" href="/downloads/utilityhouse-release-gate-for-woocommerce.zip" download>Download plugin (.zip)</a></div></section>
     <section class="setup-step"><span class="step-no">2</span><div><h2>Open your connection bundle</h2><p>The two keys are derived for this store and are never written to the account database.</p><form method="post" action="/dashboard/store/${escapeHtml(store.id)}/release-gate"><button class="btn" type="submit">${bundle ? "Open bundle again" : "Open connection bundle"}</button></form>${bundleHtml}</div></section>
-    <section class="setup-step"><span class="step-no">3</span><div><h2>Paste and send a test</h2><p>In WooCommerce → AgentReady, paste all four values, save, then choose “Send aggregate evidence now.”</p><p class="setup-note">The signed packet contains only a Woo readiness state and product count. It cannot create carts, orders or payments.</p></div></section>
+    <section class="setup-step"><span class="step-no">3</span><div><h2>Paste and send a test</h2><p>In WooCommerce → Release Gate, paste all four values, save, then choose “Send aggregate evidence now.”</p><p class="setup-note">The signed packet contains only a Woo readiness state and product count. It cannot create carts, orders or payments.</p></div></section>
     <section class="setup-step"><span class="step-no">4</span><div><h2>Verify this store</h2><p>We ask your public plugin for one short-lived proof. No WordPress login or customer data is read.</p><button class="btn" type="button" id="verify-ownership">Verify connection</button><p id="verify-message" class="setup-note" role="status" aria-live="polite" style="margin-top:10px"></p></div></section>
   </div>
   <aside class="card setup-status" aria-label="Connection status">

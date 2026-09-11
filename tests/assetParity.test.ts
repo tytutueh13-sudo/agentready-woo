@@ -86,9 +86,9 @@ test("the host that has no DNS record appears nowhere", () => {
   // wordpress.org checks, the plugin's own scan link, readme install steps, and
   // the outbound User-Agent a merchant reads in their access log.
   for (const file of ["marketing/landing/index.html", "src/core/acpQuote.ts",
-                      "wordpress-plugin/agentready-woo/agentready-woo.php",
-                      "wordpress-plugin/agentready-woo/readme.txt",
-                      "wordpress-plugin/agentready-woo/includes/class-agentready-woo.php"]) {
+                      "wordpress-plugin/utilityhouse-release-gate-for-woocommerce/utilityhouse-release-gate-for-woocommerce.php",
+                      "wordpress-plugin/utilityhouse-release-gate-for-woocommerce/readme.txt",
+                      "wordpress-plugin/utilityhouse-release-gate-for-woocommerce/includes/class-utilityhouse-release-gate.php"]) {
     assert.equal(text(file).includes("agentready.utilityhouse.xyz"), false,
       `${file} points at a host with no DNS record`);
   }
